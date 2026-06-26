@@ -14,21 +14,29 @@ on any JS/TS repo.
 
 ## Install into Pi
 
-This repo is a Pi package: its `package.json` `pi` manifest points at the extension and the
+This is a Pi package: its `package.json` `pi` manifest points at the extension and the
 skill, so Pi discovers both.
 
 ```bash
-npm install
-npm run build      # typechecks the whole pack
+# Install the published package:
+pi install npm:@justynclark/project-aware-qa
 
-# Load it for a session:
-pi -e extensions/qa.ts
-
-# …or install it as a package (from this directory or a git/npm source):
+# …or from this repo (git source or a local clone):
+pi install git:github.com/justyn-clark/project-aware-qa
 pi install .
 ```
 
-After loading, `/reload` in Pi and the four commands appear.
+After installing, `/reload` in Pi and the four commands appear.
+
+### Developing on the pack
+
+```bash
+npm install
+npm run check   # strict typecheck
+npm run lint    # biome
+npm test        # node:test suite
+pi -e extensions/qa.ts   # load the local extension for a session
+```
 
 ## Commands
 

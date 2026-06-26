@@ -1,12 +1,46 @@
 {
-  "name": "project-aware-qa",
+  "name": "@justynclark/project-aware-qa",
   "version": "0.1.0",
-  "private": true,
-  "type": "module",
   "description": "Pi-first QA pack: scans real codebases, infers test surfaces, ranks risk, runs evidence-based checks, captures screenshots, and writes .qa/* reports.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "justyn-clark <ijustynclark@gmail.com>",
+  "homepage": "https://github.com/justyn-clark/project-aware-qa#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/justyn-clark/project-aware-qa.git"
+  },
+  "bugs": {
+    "url": "https://github.com/justyn-clark/project-aware-qa/issues"
+  },
+  "keywords": [
+    "pi",
+    "pi-coding-agent",
+    "pi-package",
+    "qa",
+    "testing",
+    "test-surfaces",
+    "react-router",
+    "remix",
+    "nestjs",
+    "justin-clark-network",
+    "jcn"
+  ],
   "engines": {
     "node": ">=20"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "extensions",
+    "skills",
+    "scripts",
+    "src",
+    "templates",
+    "README.md",
+    "LICENSE"
+  ],
   "pi": {
     "extensions": [
       "extensions/qa.ts"
@@ -14,12 +48,6 @@
     "skills": [
       "skills/project-aware-qa"
     ]
-  },
-  "bin": {
-    "qa-scan": "scripts/scan.ts",
-    "qa-plan": "scripts/plan.ts",
-    "qa-verify": "scripts/verify.ts",
-    "qa-report": "scripts/report.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -31,7 +59,8 @@
     "qa:scan": "tsx scripts/scan.ts",
     "qa:plan": "tsx scripts/plan.ts",
     "qa:verify": "tsx scripts/verify.ts",
-    "qa:report": "tsx scripts/report.ts"
+    "qa:report": "tsx scripts/report.ts",
+    "prepublishOnly": "npm run lint && npm run check && npm test"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.1",

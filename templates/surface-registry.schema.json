@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://project-aware-qa/schemas/surface-registry.json",
+  "title": "Surface Registry",
+  "description": "Machine-readable output of project-aware-qa: the inferred QA surface area of a repo.",
+  "type": "object",
+  "required": ["schema", "version", "generatedAt", "project", "surfaces", "stats"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": { "type": "string" },
+    "version": { "type": "string" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "tool": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "project": {
+      "type": "object",
+      "required": ["root", "packageManager", "frameworks", "scripts"],
+      "properties": {
+        "name": { "type": "string" },
+        "root": { "type": "string" },
+        "packageManager": { "enum": ["npm", "pnpm", "yarn", "bun", "unknown"] },
+        "frameworks": { "type": "array", "items": { "type": "string" } },
+        "scripts": { "type": "object", "additionalProperties": { "type": "string" } },
+        "checks": {
+          "type": "object",
+          "properties": {
+            "typecheck": { "type": "string" },
+            "lint": { "type": "string" },
+            "test": { "type": "string" },
+            "build": { "type": "string" },
+            "dev": { "type": "string" }
+          }
+        },
+        "testRunners": { "type": "array", "items": { "type": "string" } },
+        "packageJsonPaths": { "type": "array", "items": { "type": "string" } },
+        "dependencies": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "surfaces": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/surface" }
+    },
+    "stats": {
+      "type": "object",
+      "required": ["surfaces", "byType", "byRisk"],
+      "properties": {
+        "totalFiles": { "type": "number" },
+        "scannedFiles": { "type": "number" },
+        "surfaces": { "type": "number" },
+        "byType": { "type": "object", "additionalProperties": { "type": "number" } },
+        "byRisk": {
+          "type": "object",
+          "properties": {
+            "high": { "type": "number" },
+            "medium": { "type": "number" },
+            "low": { "type": "number" }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "evidence": {
+      "type": "object",
+      "required": ["kind", "detail"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "file", "route", "endpoint", "form", "dto", "query",
+            "mutation", "invalidation", "storage", "test", "script", "note"
+          ]
+        },
+        "detail": { "type": "string" },
+        "file": { "type": "string" },
+        "line": { "type": "number" }
+      }
+    },
+    "inferredTest": {
+      "type": "object",
+      "required": ["kind", "description", "status"],
+      "properties": {
+        "kind": { "enum": ["smoke", "route", "form", "api", "cache", "screenshot", "e2e", "unit"] },
+        "description": { "type": "string" },
+        "status": { "enum": ["present", "missing", "unknown"] }
+      }
+    },
+    "surface": {
+      "type": "object",
+      "required": ["id", "type", "title", "files", "risk", "riskScore", "riskReasons", "inferredTests", "evidence", "gaps"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": {
+          "enum": ["crud-flow", "form", "api-endpoint", "route", "cache-risk", "visual-page", "test-gap"]
+        },
+        "title": { "type": "string" },
+        "entity": { "type": "string" },
+        "frontendRoute": { "type": "string" },
+        "backendEndpoint": { "type": "string" },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "risk": { "enum": ["high", "medium", "low"] },
+        "riskScore": { "type": "number" },
+        "riskReasons": { "type": "array", "items": { "type": "string" } },
+        "inferredTests": { "type": "array", "items": { "$ref": "#/definitions/inferredTest" } },
+        "evidence": { "type": "array", "items": { "$ref": "#/definitions/evidence" } },
+        "gaps": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

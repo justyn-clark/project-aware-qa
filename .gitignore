@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# QA outputs are generated artifacts; keep them out of the pack repo by default.
+.qa/
+!.qa/.gitkeep
+
+# Local editor / OS noise
+.DS_Store
+.idea/
+.vscode/

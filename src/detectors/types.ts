@@ -7,7 +7,14 @@ import type { HttpMethod } from "../types.js";
 export interface RouteInfo {
 	routePath: string;
 	file: string;
-	kind: "remix-file" | "rr-config" | "rr-jsx" | "next-app" | "next-pages";
+	kind:
+		| "remix-file"
+		| "rr-config"
+		| "rr-jsx"
+		| "next-app"
+		| "next-pages"
+		| "phoenix-router"
+		| "phoenix-live";
 	isAdmin: boolean;
 	isIndex: boolean;
 	isLayout: boolean;

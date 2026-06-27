@@ -10,7 +10,6 @@
  */
 import type { RepoFiles } from "../scanner/files.js";
 import { grepContent, readFileCached } from "../scanner/files.js";
-import type { ProjectInfo } from "../types.js";
 import { entityFromSegments } from "./entities.js";
 import type { RouteInfo } from "./types.js";
 
@@ -288,9 +287,9 @@ function detectNextRoutes(repo: RepoFiles): RouteInfo[] {
 }
 
 /** Detect routes using whichever strategies match the project's frameworks. */
-export function detectRoutes(repo: RepoFiles, project: ProjectInfo): RouteInfo[] {
+export function detectRoutes(repo: RepoFiles, frameworks: string[]): RouteInfo[] {
 	const all: RouteInfo[] = [];
-	const fw = new Set(project.frameworks);
+	const fw = new Set(frameworks);
 	if (fw.has("remix") || fw.has("react-router")) {
 		all.push(...detectRemixFileRoutes(repo));
 		all.push(...detectConfigRoutes(repo));

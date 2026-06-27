@@ -9,19 +9,14 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { detectPlaywright } from "../detectors/playwright.js";
 import { readRegistry, writeArtifact } from "../io.js";
 import { validateRegistry } from "../registry/schema.js";
 import { clearFileCache, walkRepo } from "../scanner/files.js";
-import { scanPackages } from "../scanner/package.js";
-import type { ProjectInfo, SurfaceRegistry } from "../types.js";
-import {
-	packageManagerInstall,
-	packageManagerRun,
-	type RunResult,
-	runCommand,
-	tail,
-} from "./commands.js";
+import { scanStacks } from "../stacks/index.js";
+import type { ProjectInfo, StackInfo, SurfaceRegistry } from "../types.js";
+import { packageManagerInstall, type RunResult, runCommand, tail } from "./commands.js";
 import {
 	calibrateServer,
 	captureScreenshots,
@@ -115,11 +110,10 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 	// Pi session; clear it so verify never reads a package.json/config stale from an earlier scan.
 	clearFileCache();
 	const repo = walkRepo(root, { maxFiles: 8000 });
-	const { project } = scanPackages(repo);
+	const { project } = scanStacks(repo);
 	const playwright = detectPlaywright(repo);
 	const registry = readRegistry(root);
 	const checks: CheckResult[] = [];
-	const pm = project.packageManager;
 	const timeoutMs = options.timeoutMs;
 
 	// 1. Registry validation.
@@ -142,79 +136,11 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 		});
 	}
 
-	// 2. Install check (gated brake).
-	const nmPresent = existsSync(`${root.replace(/\/$/, "")}/node_modules`);
-	if (nmPresent) {
-		checks.push({
-			id: "install",
-			title: "Dependencies installed",
-			status: "passed",
-			summary: "node_modules present",
-		});
-	} else if (options.runInstall) {
-		const { command, args } = packageManagerInstall(pm);
-		const run = await runCommand(command, args, { cwd: root, timeoutMs: timeoutMs ?? 600_000 });
-		checks.push(checkFromRun("install", `Install dependencies (${pm})`, run, root));
-	} else {
-		const { command, args } = packageManagerInstall(pm);
-		checks.push({
-			id: "install",
-			title: "Dependencies installed",
-			status: "skipped",
-			reason: `node_modules absent — install is gated. Re-run with install enabled to execute \`${command} ${args.join(" ")}\`.`,
-		});
-	}
-	const depsReady = checks.find((c) => c.id === "install")?.status === "passed";
-
-	// 3. Typecheck.
-	await runScriptCheck(
-		"typecheck",
-		"Type check",
-		project.checks.typecheck,
-		depsReady,
-		pm,
-		root,
-		checks,
-		timeoutMs ?? 240_000,
-	);
-	// 4. Lint.
-	await runScriptCheck(
-		"lint",
-		"Lint",
-		project.checks.lint,
-		depsReady,
-		pm,
-		root,
-		checks,
-		timeoutMs ?? 240_000,
-	);
-
-	// 5. Tests (gated brake — long running).
-	if (!project.checks.test) {
-		checks.push({
-			id: "test",
-			title: "Existing tests",
-			status: "skipped",
-			reason: "No test script found in package.json",
-		});
-	} else if (!depsReady) {
-		checks.push({
-			id: "test",
-			title: "Existing tests",
-			status: "skipped",
-			reason: "Dependencies not installed (install gated)",
-		});
-	} else if (!options.runTests) {
-		checks.push({
-			id: "test",
-			title: "Existing tests",
-			status: "skipped",
-			reason: `Full test run is gated (can be long). Re-run with tests enabled to execute \`${pm} run ${project.checks.test}\`.`,
-		});
-	} else {
-		const { command, args } = packageManagerRun(pm, project.checks.test);
-		const run = await runCommand(command, args, { cwd: root, timeoutMs: timeoutMs ?? 600_000 });
-		checks.push(checkFromRun("test", "Existing tests", run, root));
+	// 2-5. Per-stack check ladder: deps/install → typecheck → lint → tests. Each stack runs
+	// its own commands in its own subdir (monorepo-aware); brakes are honoured per stack.
+	const multi = project.stacks.length > 1;
+	for (const stack of project.stacks) {
+		await runStackLadder(stack, { root, multi, options, timeoutMs }, checks);
 	}
 
 	// 6. Targeted route probes + 7. screenshots.
@@ -283,15 +209,16 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 			);
 		}
 	} else {
-		// Optionally bring up the project's dev server, then tear it down afterwards.
+		// Optionally bring up a dev server (the first stack that declares a `dev` command).
 		let devServer: ReturnType<typeof spawn> | undefined;
 		let serverStarted = false;
-		if (options.startDevServer && project.checks.dev) {
+		const devStack = project.stacks.find((s) => s.checks.dev);
+		if (options.startDevServer && devStack?.checks.dev) {
 			const alreadyUp = await waitForServer(baseUrl, 1500, 500);
 			if (!alreadyUp) {
-				const { command, args } = packageManagerRun(pm, project.checks.dev);
-				devServer = spawn(command, args, {
-					cwd: root,
+				const [command, ...args] = devStack.checks.dev.command.split(/\s+/);
+				devServer = spawn(command as string, args, {
+					cwd: join(root, devStack.checks.dev.cwd),
 					env: { ...process.env, CI: "1" },
 					detached: false,
 				});
@@ -299,22 +226,22 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 			} else {
 				serverStarted = true;
 			}
-			if (!serverStarted) {
-				checks.push({
-					id: "dev-server",
-					title: "Start dev server",
-					status: "failed",
-					command: packageManagerRun(pm, project.checks.dev).command,
-					reason: `Dev server did not become reachable at ${baseUrl} within 90s`,
-				});
-			} else {
-				checks.push({
-					id: "dev-server",
-					title: "Start dev server",
-					status: "passed",
-					summary: `up at ${baseUrl}`,
-				});
-			}
+			checks.push(
+				serverStarted
+					? {
+							id: "dev-server",
+							title: "Start dev server",
+							status: "passed",
+							summary: `up at ${baseUrl}`,
+						}
+					: {
+							id: "dev-server",
+							title: "Start dev server",
+							status: "failed",
+							command: devStack.checks.dev.command,
+							reason: `Dev server did not become reachable at ${baseUrl} within 90s`,
+						},
+			);
 		}
 		const out = await captureScreenshots({
 			root,
@@ -355,30 +282,161 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 	return { root, generatedAt, project, registry, checks, probes, screenshots, baseUrl };
 }
 
-async function runScriptCheck(
+function safeId(s: string): string {
+	return (
+		s
+			.replace(/[^a-z0-9]+/gi, "-")
+			.replace(/^-+|-+$/g, "")
+			.toLowerCase() || "stack"
+	);
+}
+
+/** Per-stack dependency directory presence (where it's knowable) and install command. */
+function stackDeps(stack: StackInfo, root: string): { ready: boolean; install?: string } {
+	const cwd = join(root, stack.rootRel);
+	const pm = stack.packageManager;
+	if (pm === "npm" || pm === "pnpm" || pm === "yarn" || pm === "bun") {
+		const { command, args } = packageManagerInstall(pm);
+		return {
+			ready: existsSync(join(cwd, "node_modules")),
+			install: `${command} ${args.join(" ")}`,
+		};
+	}
+	if (pm === "mix") return { ready: existsSync(join(cwd, "deps")), install: "mix deps.get" };
+	if (pm === "bundler")
+		return { ready: existsSync(join(cwd, "vendor/bundle")) || true, install: "bundle install" };
+	if (pm === "cargo") return { ready: true, install: "cargo fetch" };
+	if (pm === "pip") return { ready: true, install: "pip install -r requirements.txt" };
+	// go/gradle/maven/dotnet/etc. fetch on demand — assume ready, command captures failures.
+	return { ready: true };
+}
+
+async function runCommandCheck(
 	id: string,
 	title: string,
-	script: string | undefined,
-	depsReady: boolean,
-	pm: ProjectInfo["packageManager"],
+	command: string,
+	cwd: string,
 	root: string,
-	checks: CheckResult[],
 	timeoutMs: number,
+	checks: CheckResult[],
 ): Promise<void> {
-	if (!script) {
-		checks.push({ id, title, status: "skipped", reason: `No ${id} script found in package.json` });
-		return;
-	}
-	if (!depsReady) {
+	const [bin, ...args] = command.split(/\s+/);
+	const run = await runCommand(bin as string, args, { cwd: join(root, cwd), timeoutMs });
+	checks.push(checkFromRun(id, title, run, root));
+}
+
+interface LadderCtx {
+	root: string;
+	multi: boolean;
+	options: VerifyOptions;
+	timeoutMs?: number;
+}
+
+/** Run install/typecheck/lint/test for one stack, honouring the brakes. */
+async function runStackLadder(
+	stack: StackInfo,
+	ctx: LadderCtx,
+	checks: CheckResult[],
+): Promise<void> {
+	const { root, multi, options } = ctx;
+	const tag = multi ? `:${stack.adapter}${stack.rootRel ? `@${stack.rootRel}` : ""}` : "";
+	const sid = (k: string) => safeId(`${k}-${stack.adapter}-${stack.rootRel || "root"}`);
+	const { ready, install } = stackDeps(stack, root);
+
+	// Dependencies (gated brake).
+	if (ready) {
 		checks.push({
-			id,
-			title,
-			status: "skipped",
-			reason: "Dependencies not installed (install gated)",
+			id: sid("install"),
+			title: `Dependencies${tag}`,
+			status: "passed",
+			summary: "present",
 		});
-		return;
+	} else if (options.runInstall && install) {
+		await runCommandCheck(
+			sid("install"),
+			`Install deps${tag}`,
+			install,
+			stack.rootRel,
+			root,
+			ctx.timeoutMs ?? 600_000,
+			checks,
+		);
+	} else {
+		checks.push({
+			id: sid("install"),
+			title: `Dependencies${tag}`,
+			status: "skipped",
+			reason: install
+				? `Not installed — gated. Re-run with install enabled to execute \`${install}\`.`
+				: "Dependency state unknown for this stack",
+		});
 	}
-	const { command, args } = packageManagerRun(pm, script);
-	const run = await runCommand(command, args, { cwd: root, timeoutMs });
-	checks.push(checkFromRun(id, `${title} (${script})`, run, root));
+	const depsReady = ready || checks.find((c) => c.id === sid("install"))?.status === "passed";
+
+	// Typecheck + lint.
+	for (const kind of ["typecheck", "lint"] as const) {
+		const cmd = stack.checks[kind];
+		const title = `${kind === "typecheck" ? "Type check" : "Lint"}${tag}`;
+		if (!cmd) {
+			checks.push({
+				id: sid(kind),
+				title,
+				status: "skipped",
+				reason: `No ${kind} command for this stack`,
+			});
+		} else if (!depsReady) {
+			checks.push({
+				id: sid(kind),
+				title,
+				status: "skipped",
+				reason: "Dependencies not installed (gated)",
+			});
+		} else {
+			await runCommandCheck(
+				sid(kind),
+				`${title} (${cmd.command})`,
+				cmd.command,
+				cmd.cwd,
+				root,
+				ctx.timeoutMs ?? 240_000,
+				checks,
+			);
+		}
+	}
+
+	// Tests (gated brake — long running).
+	const test = stack.checks.test;
+	const testTitle = `Tests${tag}`;
+	if (!test) {
+		checks.push({
+			id: sid("test"),
+			title: testTitle,
+			status: "skipped",
+			reason: "No test command for this stack",
+		});
+	} else if (!depsReady) {
+		checks.push({
+			id: sid("test"),
+			title: testTitle,
+			status: "skipped",
+			reason: "Dependencies not installed (gated)",
+		});
+	} else if (!options.runTests) {
+		checks.push({
+			id: sid("test"),
+			title: testTitle,
+			status: "skipped",
+			reason: `Full test run is gated (can be long). Re-run with tests enabled to execute \`${test.command}\`.`,
+		});
+	} else {
+		await runCommandCheck(
+			sid("test"),
+			`${testTitle} (${test.command})`,
+			test.command,
+			test.cwd,
+			root,
+			ctx.timeoutMs ?? 600_000,
+			checks,
+		);
+	}
 }

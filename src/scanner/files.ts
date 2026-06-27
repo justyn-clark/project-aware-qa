@@ -24,11 +24,118 @@ const DEFAULT_IGNORES = new Set([
 	"vendor",
 	"__pycache__",
 	".venv",
+	"venv",
 	"tmp",
 	".react-router",
+	// non-JS ecosystems
+	"deps", // Elixir
+	"_build", // Elixir
+	"target", // Rust / JVM
+	"obj", // .NET
+	"Pods", // CocoaPods
+	"zig-cache",
+	"zig-out",
+	".godot",
+	".mix",
 ]);
 
-const CODE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".vue", ".svelte"]);
+// Broad, multi-language source set — adapters filter this down to their own extensions.
+const CODE_EXTENSIONS = new Set([
+	// JS/TS + web
+	".ts",
+	".tsx",
+	".js",
+	".jsx",
+	".mjs",
+	".cjs",
+	".vue",
+	".svelte",
+	".astro",
+	// Elixir / Phoenix
+	".ex",
+	".exs",
+	".heex",
+	".eex",
+	".leex",
+	// Python
+	".py",
+	".pyi",
+	// Ruby
+	".rb",
+	".erb",
+	".rake",
+	// Go
+	".go",
+	// Rust / Zig / Odin / Swift
+	".rs",
+	".zig",
+	".odin",
+	".swift",
+	// JVM
+	".java",
+	".kt",
+	".kts",
+	".scala",
+	".groovy",
+	// .NET
+	".cs",
+	".razor",
+	".cshtml",
+	".fs",
+	// C / C++
+	".c",
+	".h",
+	".cc",
+	".cpp",
+	".cxx",
+	".hpp",
+	".hh",
+	// PHP
+	".php",
+	// Game / other
+	".gd",
+]);
+
+// Build-file / marker basenames that indicate a stack and are worth reading.
+const MARKER_FILES = new Set([
+	"package.json",
+	"tsconfig.json",
+	"nest-cli.json",
+	"deno.json",
+	"deno.jsonc",
+	"mix.exs",
+	"mix.lock",
+	"go.mod",
+	"go.work",
+	"Cargo.toml",
+	"build.zig",
+	"build.zig.zon",
+	"pyproject.toml",
+	"setup.py",
+	"setup.cfg",
+	"requirements.txt",
+	"Pipfile",
+	"poetry.lock",
+	"Gemfile",
+	"Rakefile",
+	"pom.xml",
+	"build.gradle",
+	"build.gradle.kts",
+	"settings.gradle",
+	"composer.json",
+	"CMakeLists.txt",
+	"Makefile",
+	"makefile",
+	"meson.build",
+	"project.godot",
+]);
+const MARKER_SUFFIXES = [".csproj", ".fsproj", ".sln", ".gemspec"];
+const CONFIG_PREFIXES = [
+	"playwright.config.",
+	"vite.config.",
+	"react-router.config.",
+	"remix.config.",
+];
 
 export interface FileEntry {
 	/** Repo-relative path with forward slashes. */
@@ -123,15 +230,10 @@ export function walkRepo(root: string, options: ScanFsOptions = {}): RepoFiles {
 }
 
 function isInterestingNonCode(name: string): boolean {
-	return (
-		name === "package.json" ||
-		name === "tsconfig.json" ||
-		name.startsWith("playwright.config.") ||
-		name.startsWith("vite.config.") ||
-		name.startsWith("react-router.config.") ||
-		name.startsWith("remix.config.") ||
-		name === "nest-cli.json"
-	);
+	if (MARKER_FILES.has(name)) return true;
+	if (MARKER_SUFFIXES.some((s) => name.endsWith(s))) return true;
+	if (CONFIG_PREFIXES.some((p) => name.startsWith(p))) return true;
+	return false;
 }
 
 function extname(name: string): string {

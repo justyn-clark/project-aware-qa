@@ -1,0 +1,73 @@
+/**
+ * Node / JavaScript-TypeScript stack adapter.
+ *
+ * Wraps the existing JS-TS detectors (React Router/Remix, NestJS, forms, cache, tests)
+ * and package.json toolchain detection behind the StackAdapter interface. Behaviour for
+ * JS/TS repos is unchanged — this is the reference "deep" adapter.
+ */
+import { detectCacheSignals } from "../detectors/cache.js";
+import { detectForms } from "../detectors/forms.js";
+import { detectControllers, detectDtos } from "../detectors/nestjs.js";
+import { detectRoutes } from "../detectors/react-router.js";
+import { detectTests } from "../detectors/tests.js";
+import type { RepoFiles } from "../scanner/files.js";
+import { scanPackages } from "../scanner/package.js";
+import type { CheckCommand, PackageManager, StackChecks, StackInfo } from "../types.js";
+import { packageManagerRun } from "../verify/commands.js";
+import type { StackAdapter, StackMatch, StackScan } from "./types.js";
+
+function checkCommand(pm: PackageManager, script: string): CheckCommand {
+	const { command, args } = packageManagerRun(pm, script);
+	return { command: `${command} ${args.join(" ")}`.trim(), cwd: "" };
+}
+
+export const nodeAdapter: StackAdapter = {
+	id: "node",
+	name: "Node / JavaScript-TypeScript",
+	kind: "deep",
+	extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
+	markers: ["package.json"],
+
+	detect(repo: RepoFiles): StackMatch[] {
+		const hasPkg = repo.files.some(
+			(f) => f.path === "package.json" || f.path.endsWith("/package.json"),
+		);
+		if (!hasPkg) return [];
+		// The node toolchain merges all package.json files (monorepo-aware), so one match.
+		return [{ adapter: "node", rootRel: "", label: "Node", confidence: 80 }];
+	},
+
+	scan(repo: RepoFiles, _match: StackMatch): StackScan {
+		const tc = scanPackages(repo);
+		const checks: StackChecks = {};
+		for (const kind of ["typecheck", "lint", "test", "build", "dev"] as const) {
+			const script = tc.checkScripts[kind];
+			if (script) checks[kind] = checkCommand(tc.packageManager, script);
+		}
+		const usesTs = repo.files.some((f) => f.path.endsWith(".ts") || f.path.endsWith(".tsx"));
+		const stack: StackInfo = {
+			adapter: "node",
+			label: `Node (${tc.packageManager})`,
+			language: usesTs ? "typescript" : "javascript",
+			rootRel: "",
+			packageManager: tc.packageManager,
+			frameworks: tc.frameworks,
+			scripts: tc.scripts,
+			checks,
+			testRunners: tc.testRunners,
+			depth: "deep",
+		};
+		const bundle = {
+			routes: detectRoutes(repo, tc.frameworks),
+			endpoints: detectControllers(repo),
+			dtos: detectDtos(repo),
+			forms: detectForms(repo),
+			cacheSignals: detectCacheSignals(repo),
+			tests: detectTests(repo),
+		};
+		return { stack, bundle, extraSurfaces: [] };
+	},
+};
+
+/** Node toolchain facts the scanner reuses for top-level ProjectInfo back-compat. */
+export { scanPackages };

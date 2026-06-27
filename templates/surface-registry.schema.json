@@ -19,26 +19,45 @@
     },
     "project": {
       "type": "object",
-      "required": ["root", "packageManager", "frameworks", "scripts"],
+      "required": ["root", "packageManager", "frameworks", "scripts", "stacks"],
       "properties": {
         "name": { "type": "string" },
         "root": { "type": "string" },
-        "packageManager": { "enum": ["npm", "pnpm", "yarn", "bun", "unknown"] },
+        "packageManager": { "type": "string", "description": "Primary stack's package manager (npm/pnpm/yarn/bun/mix/go/cargo/pip/…)." },
         "frameworks": { "type": "array", "items": { "type": "string" } },
         "scripts": { "type": "object", "additionalProperties": { "type": "string" } },
-        "checks": {
-          "type": "object",
-          "properties": {
-            "typecheck": { "type": "string" },
-            "lint": { "type": "string" },
-            "test": { "type": "string" },
-            "build": { "type": "string" },
-            "dev": { "type": "string" }
-          }
-        },
         "testRunners": { "type": "array", "items": { "type": "string" } },
         "packageJsonPaths": { "type": "array", "items": { "type": "string" } },
-        "dependencies": { "type": "object", "additionalProperties": { "type": "string" } }
+        "dependencies": { "type": "object", "additionalProperties": { "type": "string" } },
+        "stacks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["adapter", "label", "language", "rootRel", "packageManager", "frameworks", "checks", "depth"],
+            "properties": {
+              "adapter": { "type": "string" },
+              "label": { "type": "string" },
+              "language": { "type": "string" },
+              "rootRel": { "type": "string" },
+              "packageManager": { "type": "string" },
+              "frameworks": { "type": "array", "items": { "type": "string" } },
+              "scripts": { "type": "object", "additionalProperties": { "type": "string" } },
+              "testRunners": { "type": "array", "items": { "type": "string" } },
+              "depth": { "enum": ["deep", "generic"] },
+              "checks": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["command", "cwd"],
+                  "properties": {
+                    "command": { "type": "string" },
+                    "cwd": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "surfaces": {

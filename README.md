@@ -9,8 +9,22 @@ existing tests by **entity**, then plans and verifies the riskiest surfaces — 
 flows, mutations without cache invalidation, forms whose fields don't match their DTO, and
 untested mutating areas.
 
-Built for **React Router / Remix + NestJS** admin apps, but the scanner degrades gracefully
-on any JS/TS repo.
+It is **multi-stack** via a plugin architecture: deep adapters parse real web surfaces for
+specific ecosystems, and a generic adapter gives every other language a useful baseline.
+A monorepo (e.g. a Remix frontend + a Phoenix backend) is detected as multiple stacks and
+verified per-stack.
+
+### Stacks
+
+| Adapter | Coverage |
+| --- | --- |
+| **node** (deep) | React Router / Remix routes, NestJS controllers/DTOs, forms, cache, Vitest/Jest/Playwright |
+| **phoenix** (deep) | Phoenix router (scopes/pipelines, `resources`, LiveView), controllers, Ecto schemas, HEEx forms, Cachex, ExUnit |
+| **generic** (any language) | Detects the project type (Elixir, Go, Rust, Zig, Python, Ruby, Java, .NET, C/C++, Godot, …), maps build/test/lint commands, and emits a test-gap baseline — so even systems/game stacks get something useful instead of "0 files" |
+
+Adding a deep adapter for a new ecosystem is incremental — implement one `StackAdapter`
+(file extensions, toolchain, detectors) and the shared inference/risk/report/verify core
+works unchanged.
 
 ## Install into Pi
 

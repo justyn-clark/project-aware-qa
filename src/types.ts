@@ -85,26 +85,56 @@ export interface Surface {
 export type PackageManager = "npm" | "pnpm" | "yarn" | "bun" | "unknown";
 
 /** Project-level facts shared across all surfaces. */
+/** A runnable check command and the directory it runs in (language-agnostic). */
+export interface CheckCommand {
+	/** Full command line, e.g. "npm run --silent typecheck", "mix test", "go test ./...". */
+	command: string;
+	/** Repo-relative working directory ("" = repo root). */
+	cwd: string;
+}
+
+export type CheckKind = "typecheck" | "lint" | "test" | "build" | "dev";
+export type StackChecks = Partial<Record<CheckKind, CheckCommand>>;
+
+/**
+ * A single technology stack detected in the repo (a repo may contain several — e.g. a
+ * Node frontend + a Phoenix backend in a monorepo). Produced by a StackAdapter.
+ */
+export interface StackInfo {
+	/** Adapter id that produced this, e.g. "node", "phoenix", "generic". */
+	adapter: string;
+	/** Human label, e.g. "Node (npm)", "Elixir / Phoenix", "Go". */
+	label: string;
+	/** Language id, e.g. "typescript", "elixir", "go", "rust", "python". */
+	language: string;
+	/** Repo-relative root of this stack ("" = repo root). */
+	rootRel: string;
+	packageManager: string;
+	frameworks: string[];
+	/** Build-file scripts (npm scripts / mix aliases / make targets), when discoverable. */
+	scripts: Record<string, string>;
+	/** Runnable checks as full commands (the verifier runs these directly). */
+	checks: StackChecks;
+	testRunners: string[];
+	/** Whether a deep adapter parsed real surfaces, or this is a generic baseline. */
+	depth: "deep" | "generic";
+}
+
 export interface ProjectInfo {
 	name?: string;
 	root: string;
+	/** Primary (highest-confidence) stack's package manager, for at-a-glance reporting. */
 	packageManager: PackageManager;
-	/** Detected framework ids, e.g. "react-router", "nestjs", "playwright". */
+	/** Aggregated framework ids across all stacks, e.g. "react-router", "nestjs", "phoenix". */
 	frameworks: string[];
-	/** npm scripts from package.json (merged across discovered package.json files). */
+	/** Primary stack's build-file scripts. */
 	scripts: Record<string, string>;
-	/** Script name → command, for the checks the verifier knows how to run. */
-	checks: {
-		typecheck?: string;
-		lint?: string;
-		test?: string;
-		build?: string;
-		dev?: string;
-	};
 	testRunners: string[];
-	/** Repo-relative package.json paths discovered. */
+	/** Repo-relative build-file paths discovered (package.json, mix.exs, go.mod, …). */
 	packageJsonPaths: string[];
 	dependencies: Record<string, string>;
+	/** Every detected stack (length 1 for a single-language repo). */
+	stacks: StackInfo[];
 }
 
 export interface RegistryStats {

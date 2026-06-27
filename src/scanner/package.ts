@@ -8,7 +8,7 @@
  */
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { PackageManager, ProjectInfo } from "../types.js";
+import type { CheckKind, PackageManager } from "../types.js";
 import { type FileEntry, type RepoFiles, readFileCached, toPosix } from "./files.js";
 
 interface RawPackageJson {
@@ -20,8 +20,17 @@ interface RawPackageJson {
 	workspaces?: unknown;
 }
 
-export interface PackageScanResult {
-	project: ProjectInfo;
+/** Raw Node toolchain facts; the node adapter turns `checkScripts` into run commands. */
+export interface NodeToolchain {
+	name?: string;
+	packageManager: PackageManager;
+	frameworks: string[];
+	scripts: Record<string, string>;
+	/** Conventional script names for each check kind (resolved from package.json scripts). */
+	checkScripts: Partial<Record<CheckKind, string>>;
+	testRunners: string[];
+	packageJsonPaths: string[];
+	dependencies: Record<string, string>;
 }
 
 /** Detect the package manager by lockfile presence at the repo root. */
@@ -70,7 +79,7 @@ function pickScript(scripts: Record<string, string>, candidates: string[]): stri
 	return undefined;
 }
 
-export function scanPackages(repo: RepoFiles): PackageScanResult {
+export function scanPackages(repo: RepoFiles): NodeToolchain {
 	const root = repo.root;
 	const pkgFiles = repo.files.filter(
 		(f) => f.path === "package.json" || f.path.endsWith("/package.json"),
@@ -112,7 +121,7 @@ export function scanPackages(repo: RepoFiles): PackageScanResult {
 		testRunners.push("playwright");
 	if (mergedScripts.test && testRunners.length === 0) testRunners.push("npm-test");
 
-	const checks: ProjectInfo["checks"] = {};
+	const checkScripts: NodeToolchain["checkScripts"] = {};
 	const typecheckName = pickScript(mergedScripts, [
 		"typecheck",
 		"type-check",
@@ -120,28 +129,26 @@ export function scanPackages(repo: RepoFiles): PackageScanResult {
 		"check-types",
 		"check",
 	]);
-	if (typecheckName) checks.typecheck = typecheckName;
+	if (typecheckName) checkScripts.typecheck = typecheckName;
 	const lintName = pickScript(mergedScripts, ["lint", "lint:check", "biome:lint", "eslint"]);
-	if (lintName) checks.lint = lintName;
+	if (lintName) checkScripts.lint = lintName;
 	const testName = pickScript(mergedScripts, ["test", "test:unit", "test:ci"]);
-	if (testName) checks.test = testName;
+	if (testName) checkScripts.test = testName;
 	const buildName = pickScript(mergedScripts, ["build"]);
-	if (buildName) checks.build = buildName;
+	if (buildName) checkScripts.build = buildName;
 	const devName = pickScript(mergedScripts, ["dev", "start:dev", "develop", "serve"]);
-	if (devName) checks.dev = devName;
+	if (devName) checkScripts.dev = devName;
 
-	const project: ProjectInfo = {
+	return {
 		name: rootName,
-		root,
 		packageManager: detectPackageManager(root),
 		frameworks,
 		scripts: mergedScripts,
-		checks,
+		checkScripts,
 		testRunners,
 		packageJsonPaths,
 		dependencies: mergedDeps,
 	};
-	return { project };
 }
 
 /** True when node_modules is absent at the repo root (verify must gate on install). */

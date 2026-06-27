@@ -517,6 +517,8 @@ function computeStats(repo: RepoFiles, surfaces: Surface[]): RegistryStats {
 
 export interface BuildOptions {
 	generatedAt: string;
+	/** Adapter-contributed surfaces (e.g. the generic baseline) appended verbatim. */
+	extraSurfaces?: Surface[];
 }
 
 export function buildRegistry(
@@ -541,6 +543,7 @@ export function buildRegistry(
 		...buildCacheRiskSurfaces(flows, bundle.cacheSignals),
 		...buildRouteSurfaces(bundle.routes, flows, testIndex),
 		...buildTestGapSurfaces(flows, testIndex),
+		...(options.extraSurfaces ?? []),
 	];
 
 	// Stable ordering: risk desc, then type, then id.

@@ -48,10 +48,14 @@ export function renderScanReport(result: ScanResult): string {
 			["Property", "Value"],
 			[
 				["Name", project.name ?? "—"],
-				["Package manager", project.packageManager],
+				[
+					"Stacks",
+					project.stacks.map((s) => `${s.label}${s.rootRel ? ` @${s.rootRel}` : ""}`).join(", ") ||
+						"—",
+				],
 				["Frameworks", project.frameworks.join(", ") || "—"],
 				["Test runners", project.testRunners.join(", ") || "—"],
-				["package.json files", String(project.packageJsonPaths.length)],
+				["Build files", String(project.packageJsonPaths.length)],
 				[
 					"Files scanned",
 					String(registry.stats.scannedFiles) + (result.repo.truncated ? " (truncated)" : ""),
@@ -60,22 +64,23 @@ export function renderScanReport(result: ScanResult): string {
 		),
 	);
 
-	lines.push("\n### Runnable checks\n");
-	lines.push(
-		table(
-			["Check", "Script"],
-			[
-				[
-					"typecheck",
-					project.checks.typecheck ? `\`${project.checks.typecheck}\`` : "— (none found)",
-				],
-				["lint", project.checks.lint ? `\`${project.checks.lint}\`` : "— (none found)"],
-				["test", project.checks.test ? `\`${project.checks.test}\`` : "— (none found)"],
-				["build", project.checks.build ? `\`${project.checks.build}\`` : "— (none found)"],
-				["dev", project.checks.dev ? `\`${project.checks.dev}\`` : "— (none found)"],
-			],
-		),
-	);
+	lines.push("\n### Runnable checks (per stack)\n");
+	if (project.stacks.length === 0) {
+		lines.push("_No recognized stack detected._");
+	}
+	for (const s of project.stacks) {
+		const c = s.checks;
+		lines.push(`\n**${s.label}${s.rootRel ? ` @${s.rootRel}` : ""}** (${s.depth})`);
+		lines.push(
+			table(
+				["Check", "Command"],
+				(["typecheck", "lint", "test", "build", "dev"] as const).map((k) => [
+					k,
+					c[k] ? `\`${c[k]?.command}\`` : "— (none found)",
+				]),
+			),
+		);
+	}
 
 	lines.push("\n## Detected surfaces\n");
 	lines.push(

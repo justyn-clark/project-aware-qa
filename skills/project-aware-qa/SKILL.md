@@ -1,6 +1,6 @@
 ---
 name: project-aware-qa
-description: Project-aware QA for real codebases. Scan a repo to infer test surfaces (routes, endpoints, forms, CRUD/admin flows, cache risks), rank risk, generate a risk-scaled test plan, run evidence-based checks with screenshots, and drive a scan→plan→verify→fix→verify→report repair loop. Multi-stack: React Router/Remix + NestJS, Phoenix, FastAPI/Django/Flask, Go, Rust, Spring, ASP.NET, plus a generic baseline for any other language. Use when asked to QA, test, audit coverage, find stale-data/cache bugs, or check a web/admin app.
+description: Project-aware QA for real codebases. Scan a repo to infer test surfaces (routes, endpoints, forms, CRUD/admin flows, cache risks), rank risk, generate a risk-scaled test plan, run evidence-based checks with screenshots, and drive a scan→plan→verify→fix→verify→report repair loop. Multi-stack — React Router/Remix + NestJS, Phoenix, FastAPI/Django/Flask, Go, Rust, Spring, ASP.NET, plus a generic baseline for any other language. Use when asked to QA, test, audit coverage, find stale-data/cache bugs, or check a web/admin app.
 ---
 
 # Project-aware QA

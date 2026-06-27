@@ -1,6 +1,6 @@
 {
   "name": "@justynclark/project-aware-qa",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Pi-first QA pack: scans real codebases, infers test surfaces, ranks risk, runs evidence-based checks, captures screenshots, and writes .qa/* reports.",
   "type": "module",
   "license": "Apache-2.0",
@@ -67,6 +67,7 @@
     "@biomejs/biome": "^2.5.1",
     "@types/node": "^22.15.18",
     "tsx": "^4.19.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "yaml": "^2.8.0"
   }
 }

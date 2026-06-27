@@ -12,10 +12,11 @@ import type { PackageManager, ProjectInfo, StackInfo, Surface } from "../types.j
 import { genericAdapter } from "./generic.js";
 import { nodeAdapter } from "./node.js";
 import { phoenixAdapter } from "./phoenix.js";
+import { pythonAdapter } from "./python.js";
 import type { StackAdapter, StackScan } from "./types.js";
 
 /** Deep adapters run first; the generic fallback fills the gaps. */
-export const DEEP_ADAPTERS: StackAdapter[] = [nodeAdapter, phoenixAdapter];
+export const DEEP_ADAPTERS: StackAdapter[] = [nodeAdapter, phoenixAdapter, pythonAdapter];
 export const ADAPTERS: StackAdapter[] = [...DEEP_ADAPTERS, genericAdapter];
 
 function mergeBundles(bundles: DetectionBundle[]): DetectionBundle {

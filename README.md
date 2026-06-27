@@ -20,6 +20,7 @@ verified per-stack.
 | --- | --- |
 | **node** (deep) | React Router / Remix routes, NestJS controllers/DTOs, forms, cache, Vitest/Jest/Playwright |
 | **phoenix** (deep) | Phoenix router (scopes/pipelines, `resources`, LiveView), controllers, Ecto schemas, HEEx forms, Cachex, ExUnit |
+| **python** (deep) | FastAPI/Flask decorator routes (APIRouter/Blueprint prefixes, Pydantic bodies), Django `urls.py` + DRF `router.register` + `@admin.register` CRUD, Pydantic/DRF/Django-model/form DTOs, templates, cache, pytest |
 | **generic** (any language) | Detects the project type (Elixir, Go, Rust, Zig, Python, Ruby, Java, .NET, C/C++, Godot, …), maps build/test/lint commands, and emits a test-gap baseline — so even systems/game stacks get something useful instead of "0 files" |
 
 Adding a deep adapter for a new ecosystem is incremental — implement one `StackAdapter`

@@ -14,7 +14,8 @@ export interface RouteInfo {
 		| "next-app"
 		| "next-pages"
 		| "phoenix-router"
-		| "phoenix-live";
+		| "phoenix-live"
+		| "django-url";
 	isAdmin: boolean;
 	isIndex: boolean;
 	isLayout: boolean;

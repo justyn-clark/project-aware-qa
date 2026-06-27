@@ -153,7 +153,10 @@ const LANG_SPECS: LangSpec[] = [
 		exts: [".c", ".h", ".cc", ".cpp", ".cxx", ".hpp", ".hh"],
 		isTest: (p) =>
 			/(^|\/)tests?\//.test(p) || /_test\.(c|cc|cpp|cxx)$|^test_.*\.(c|cc|cpp)$/.test(p),
-		checks: (r) => ({ test: cmd("ctest", r) }),
+		checks: (r) => ({
+			build: cmd("cmake --build build", r),
+			test: cmd("ctest --test-dir build", r),
+		}),
 	},
 	{
 		id: "godot",
@@ -162,8 +165,12 @@ const LANG_SPECS: LangSpec[] = [
 		packageManager: "godot",
 		markers: ["project.godot"],
 		exts: [".gd"],
-		isTest: (p) => /(^|\/)tests?\//.test(p) || /_test\.gd$|^test_.*\.gd$/.test(p),
-		checks: (r) => ({ build: cmd("godot --headless --quit", r) }),
+		// GUT convention: test/unit/test_*.gd or *_test.gd anywhere.
+		isTest: (p) => /(^|\/)tests?\//.test(p) || /(^|\/)test_[^/]*\.gd$|_test\.gd$/.test(p),
+		checks: (r) => ({
+			build: cmd("godot --headless --import", r),
+			test: cmd("godot --headless -s res://addons/gut/gut_cmdln.gd -gexit", r),
+		}),
 	},
 ];
 
@@ -200,25 +207,49 @@ function dominantByExtension(repo: RepoFiles): LangSpec | undefined {
 		const n = spec.exts.reduce((sum, e) => sum + (counts.get(e) ?? 0), 0);
 		if (n > 0 && (!best || n > best.n)) best = { spec, n };
 	}
-	// Also handle extension-only languages without a marker spec (e.g. Odin, Swift).
-	const extraLangs: Array<[string, string, string]> = [
-		[".odin", "odin", "Odin"],
-		[".swift", "swift", "Swift"],
-		[".php", "php", "PHP"],
+	// Extension-only languages without a marker manifest (Odin, Swift, …) get real checks.
+	const extraLangs: Array<{
+		ext: string;
+		id: string;
+		label: string;
+		pm: string;
+		checks: (r: string) => StackChecks;
+	}> = [
+		{
+			ext: ".odin",
+			id: "odin",
+			label: "Odin",
+			pm: "odin",
+			checks: (r) => ({ build: cmd("odin build .", r), test: cmd("odin test .", r) }),
+		},
+		{
+			ext: ".swift",
+			id: "swift",
+			label: "Swift",
+			pm: "swift",
+			checks: (r) => ({ build: cmd("swift build", r), test: cmd("swift test", r) }),
+		},
+		{
+			ext: ".php",
+			id: "php",
+			label: "PHP",
+			pm: "composer",
+			checks: (r) => ({ test: cmd("composer test", r) }),
+		},
 	];
-	for (const [ext, id, label] of extraLangs) {
-		const n = counts.get(ext) ?? 0;
+	for (const l of extraLangs) {
+		const n = counts.get(l.ext) ?? 0;
 		if (n > 0 && (!best || n > best.n)) {
 			best = {
 				spec: {
-					id,
-					label,
-					language: id,
-					packageManager: "unknown",
+					id: l.id,
+					label: l.label,
+					language: l.id,
+					packageManager: l.pm,
 					markers: [],
-					exts: [ext],
+					exts: [l.ext],
 					isTest: (p) => /(^|\/)tests?\//.test(p) || /_test\.|test_/.test(basename(p)),
-					checks: () => ({}),
+					checks: l.checks,
 				},
 				n,
 			};

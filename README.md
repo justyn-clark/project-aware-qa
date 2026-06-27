@@ -22,7 +22,10 @@ verified per-stack.
 | **phoenix** (deep) | Phoenix router (scopes/pipelines, `resources`, LiveView), controllers, Ecto schemas, HEEx forms, Cachex, ExUnit |
 | **python** (deep) | FastAPI/Flask decorator routes (APIRouter/Blueprint prefixes, Pydantic bodies), Django `urls.py` + DRF `router.register` + `@admin.register` CRUD, Pydantic/DRF/Django-model/form DTOs, templates, cache, pytest |
 | **go** (deep) | chi / gin / echo / fiber / gorilla / net-http routes (chi `Route` closures + `Group` prefixes, gorilla `.Methods`, Go 1.22 `"GET /path"`), request/response structs as DTOs, `go test`, `go build/vet`/golangci-lint |
-| **generic** (any language) | Detects the project type (Elixir, Go, Rust, Zig, Python, Ruby, Java, .NET, C/C++, Godot, …), maps build/test/lint commands, and emits a test-gap baseline — so even systems/game stacks get something useful instead of "0 files" |
+| **rust** (deep) | axum `.route(...)` chains, actix/Rocket `#[get]` macros, serde `Deserialize` structs as DTOs, `cargo build/test/clippy` |
+| **java** (deep) | Spring `@RestController`/`@*Mapping` (class prefix + `@RequestBody`), JAX-RS `@Path`/`@GET`, records + `*Request`/`*Dto` classes, maven/gradle |
+| **csharp** (deep) | ASP.NET Core minimal APIs (`MapGet`/`MapGroup`) + MVC controllers (`[HttpGet]`, `[controller]`, `[FromBody]`), record/`*Request` DTOs, `dotnet build/test` |
+| **generic** (any language) | Detects the project type — **Zig, Odin, Godot (GUT), C/C++, Swift, Ruby, PHP, …** (and any language above when no web framework is present) — maps build/test/lint commands, and emits a test-gap baseline, so even systems/game stacks get something useful instead of "0 files" |
 
 Adding a deep adapter for a new ecosystem is incremental — implement one `StackAdapter`
 (file extensions, toolchain, detectors) and the shared inference/risk/report/verify core

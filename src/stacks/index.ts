@@ -9,11 +9,14 @@
 import type { DetectionBundle } from "../detectors/types.js";
 import type { RepoFiles } from "../scanner/files.js";
 import type { PackageManager, ProjectInfo, StackInfo, Surface } from "../types.js";
+import { csharpAdapter } from "./csharp.js";
 import { genericAdapter } from "./generic.js";
 import { goAdapter } from "./golang.js";
+import { javaAdapter } from "./java.js";
 import { nodeAdapter } from "./node.js";
 import { phoenixAdapter } from "./phoenix.js";
 import { pythonAdapter } from "./python.js";
+import { rustAdapter } from "./rust.js";
 import type { StackAdapter, StackScan } from "./types.js";
 
 /** Deep adapters run first; the generic fallback fills the gaps. */
@@ -22,6 +25,9 @@ export const DEEP_ADAPTERS: StackAdapter[] = [
 	phoenixAdapter,
 	pythonAdapter,
 	goAdapter,
+	rustAdapter,
+	javaAdapter,
+	csharpAdapter,
 ];
 export const ADAPTERS: StackAdapter[] = [...DEEP_ADAPTERS, genericAdapter];
 

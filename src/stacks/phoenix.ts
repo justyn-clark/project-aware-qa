@@ -105,7 +105,7 @@ export function parseRouter(
 				line,
 			);
 		if (verb) {
-			const method = verb[1]!.toUpperCase() as HttpMethod;
+			const method = (verb[1] as string).toUpperCase() as HttpMethod;
 			const path = joinPath(frame.prefix, verb[2] ?? "");
 			const controller = shortModule(verb[3] ?? "");
 			const action = verb[4] ?? "handler";

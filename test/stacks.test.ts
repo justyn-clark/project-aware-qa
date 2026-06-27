@@ -45,7 +45,8 @@ test("generic detect: unknown build file falls back to dominant source extension
 
 test("generic scan: Elixir without Phoenix → baseline test-gap + mix checks", () => {
 	const r = repo(["mix.exs", "lib/a.ex", "lib/b.ex", "test/a_test.exs"]);
-	const match = genericAdapter.detect(r)[0]!;
+	const match = genericAdapter.detect(r)[0];
+	if (!match) throw new Error("expected a generic stack match");
 	const scan = genericAdapter.scan(r, match);
 	assert.equal(scan.stack.language, "elixir");
 	assert.equal(scan.stack.checks.test?.command, "mix test");

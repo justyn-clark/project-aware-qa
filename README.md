@@ -1,5 +1,8 @@
 # project-aware-qa
 
+[![npm](https://img.shields.io/npm/v/@justynclark/project-aware-qa)](https://www.npmjs.com/package/@justynclark/project-aware-qa)
+[![license](https://img.shields.io/npm/l/@justynclark/project-aware-qa)](./LICENSE)
+
 A **Pi-first QA pack** that scans a real codebase, infers its test surfaces, ranks risk,
 runs evidence-based checks, captures screenshots, and writes `.qa/*` reports.
 

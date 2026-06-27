@@ -76,11 +76,29 @@ export function scanStacks(repo: RepoFiles): MultiStackScan {
 		scans.push(genericAdapter.scan(repo, match));
 	}
 
-	const stacks: StackInfo[] = scans.map((s) => s.stack);
-	const bundle = mergeBundles(scans.map((s) => s.bundle));
-	const extraSurfaces = scans.flatMap((s) => s.extraSurfaces);
+	// Drop empty stacks (e.g. an assets-only package.json next to a Phoenix/Django app):
+	// no frameworks, no runnable checks, and nothing detected — keep the report clean.
+	const meaningful = scans.filter((s) => {
+		const b = s.bundle;
+		const contributed =
+			b.routes.length +
+				b.endpoints.length +
+				b.dtos.length +
+				b.forms.length +
+				b.cacheSignals.length +
+				b.tests.length +
+				s.extraSurfaces.length >
+			0;
+		return s.stack.frameworks.length > 0 || Object.keys(s.stack.checks).length > 0 || contributed;
+	});
+	// Never end up with zero stacks just because everything looked empty.
+	const kept = meaningful.length > 0 ? meaningful : scans;
 
-	const project = buildProjectInfo(repo, stacks, scans);
+	const stacks: StackInfo[] = kept.map((s) => s.stack);
+	const bundle = mergeBundles(kept.map((s) => s.bundle));
+	const extraSurfaces = kept.flatMap((s) => s.extraSurfaces);
+
+	const project = buildProjectInfo(repo, stacks, kept);
 	return { project, bundle, extraSurfaces };
 }
 

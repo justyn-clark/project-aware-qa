@@ -1,6 +1,6 @@
 ---
 name: project-aware-qa
-description: Project-aware QA for real codebases. Scan a repo to infer test surfaces (routes, endpoints, forms, CRUD/admin flows, cache risks), rank risk, generate a risk-scaled test plan, run evidence-based checks with screenshots, and drive a scan→plan→verify→fix→verify→report repair loop. Use when asked to QA, test, audit coverage, find stale-data/cache bugs, or check an admin app (React Router/Remix + NestJS).
+description: Project-aware QA for real codebases. Scan a repo to infer test surfaces (routes, endpoints, forms, CRUD/admin flows, cache risks), rank risk, generate a risk-scaled test plan, run evidence-based checks with screenshots, and drive a scan→plan→verify→fix→verify→report repair loop. Multi-stack: React Router/Remix + NestJS, Phoenix, FastAPI/Django/Flask, Go, Rust, Spring, ASP.NET, plus a generic baseline for any other language. Use when asked to QA, test, audit coverage, find stale-data/cache bugs, or check a web/admin app.
 ---
 
 # Project-aware QA
@@ -70,15 +70,28 @@ desktop (1280×800) and mobile (390×844), saving into `.qa/screenshots/`.
 
 ## What the scanner understands
 
-- **Routes**: React Router (RR6 JSX, RR7 config) and Remix/flat-routes file conventions
-  (`app/routes/**`, `$param`, `_index`, pathless `_` layouts, `.route.tsx`).
-- **Backend**: NestJS controllers (`@Controller`/`@Get`/`@Post`/…), endpoints, and DTOs
-  with class-validator decorators.
-- **Forms**: Remix `<Form>`, raw `<form>`, react-hook-form, Formik — with field names.
-- **Cache/invalidation**: TanStack Query, SWR, React Router revalidation, cachified +
-  `clearCacheKey`, NestJS cache-manager, and browser storage.
-- **Tests**: Vitest / Jest / Playwright, mapped back to the entities they cover.
+It is **multi-stack** via a plugin architecture: each ecosystem has an adapter, and a
+monorepo (e.g. a JS frontend + a Python or Go backend) is detected as multiple stacks and
+verified per-stack.
 
-Inference correlates these by **entity** (track ↔ tracks ↔ `@Controller('track')` ↔
-`CreateTrackDto`) to build CRUD flows, map forms to endpoints, diff form fields against
-DTOs, and pair mutations with their (missing) cache invalidations.
+**Deep adapters** (real route/endpoint/form/DTO parsing):
+
+- **node** — React Router (RR6 JSX, RR7 config) + Remix/flat-routes; NestJS controllers/DTOs;
+  forms (Remix `<Form>`, react-hook-form, Formik); TanStack/SWR/cachified cache; Vitest/Jest/Playwright.
+- **phoenix** — Phoenix router (scopes/pipelines, `resources`, LiveView), controllers, Ecto
+  schemas, HEEx forms, Cachex, ExUnit.
+- **python** — FastAPI/Flask decorator routes, Django `urls.py` + DRF + `@admin.register` CRUD,
+  Pydantic/DRF/model/form DTOs, pytest.
+- **go** — chi/gin/echo/fiber/gorilla/net-http routes, request structs as DTOs, `go test`.
+- **rust** — axum/actix/Rocket routes, serde structs, cargo.
+- **java** — Spring `@RestController`/`@*Mapping` + JAX-RS, records/`*Request` DTOs, maven/gradle.
+- **csharp** — ASP.NET Core minimal APIs + MVC controllers, record/`*Request` DTOs, dotnet.
+
+**Generic adapter** — any other language (Zig, Odin, Godot, C/C++, Swift, Ruby, PHP, or any of
+the above without a web framework): detects the project type, maps build/test/lint commands,
+and emits a test-gap baseline.
+
+Inference correlates surfaces by **entity** (e.g. track ↔ tracks ↔ `@Controller('track')` /
+`TrackController` / `Router::new().route("/tracks", …)` ↔ `CreateTrackDto`) — the same way for
+every stack — to build CRUD flows, map forms to endpoints, diff form fields against DTOs, and
+pair mutations with their (missing) cache invalidations.

@@ -33,6 +33,11 @@ export const nodeAdapter: StackAdapter = {
 			(f) => f.path === "package.json" || f.path.endsWith("/package.json"),
 		);
 		if (!hasPkg) return [];
+		// Only anchor a Node stack when there's a real project signal (a framework or a
+		// runnable check script). An assets/tooling-only package.json — e.g. tailwind/esbuild
+		// next to a Phoenix or Django app — shouldn't create a "Node (unknown)" stack.
+		const tc = scanPackages(repo);
+		if (tc.frameworks.length === 0 && Object.keys(tc.checkScripts).length === 0) return [];
 		// The node toolchain merges all package.json files (monorepo-aware), so one match.
 		return [{ adapter: "node", rootRel: "", label: "Node", confidence: 80 }];
 	},

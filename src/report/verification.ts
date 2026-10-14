@@ -68,7 +68,7 @@ export function renderVerificationReport(result: VerifyResult): string {
 	if (result.selection) {
 		lines.push("## Change selection\n");
 		lines.push(
-			`Base \`${result.selection.baseRef}\` (\`${result.selection.baseCommit.slice(0, 12)}\`) · ${result.selection.changedFiles.length} changed files · ${result.selection.stackRoots.length} stacks · ${result.selection.surfaceIds.length} directly affected surfaces.\n`,
+			`Base \`${result.selection.baseRef}\` (\`${result.selection.baseCommit.slice(0, 12)}\`) · ${result.selection.changedFiles.length} changed files · ${result.selection.stackRoots.length} stacks · ${result.selection.surfaceIds.length} affected surfaces including consumers.\n`,
 		);
 		if (result.selection.globalImpact) {
 			lines.push(
@@ -76,6 +76,20 @@ export function renderVerificationReport(result: VerifyResult): string {
 			);
 		}
 	}
+	const behavior = result.checks.filter((check) => check.id.startsWith("behavior-"));
+	if (behavior.length) {
+		lines.push(
+			"## Behavior evidence\n",
+			"These are declared mappings to executed assertion suites, not proof of exhaustive behavioral coverage.\n",
+		);
+		for (const check of behavior)
+			lines.push(
+				`- ${check.id}: ${check.status} · surfaces: ${(check.surfaceIds ?? []).join(", ")} · attachments: ${(check.attachments ?? []).map((path) => `.qa/${path}`).join(", ") || "none"}`,
+			);
+		lines.push("");
+	}
+	if (result.team)
+		lines.push("Ownership, baseline changes and suppression status: see `team-report.md`.\n");
 
 	const passed = result.checks.filter((c) => c.status === "passed").length;
 	const failed = result.checks.filter((c) => c.status === "failed").length;

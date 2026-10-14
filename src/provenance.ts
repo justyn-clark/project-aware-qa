@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
 	closeSync,
+	existsSync,
 	fstatSync,
 	lstatSync,
 	openSync,
@@ -13,6 +14,8 @@ import {
 } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { walkRepo } from "./scanner/files.js";
+import { CONFIG_FILE, readTeamConfig } from "./team-config.js";
+import { OWNER_FILES } from "./team-insights.js";
 import type { ProjectFingerprint, SurfaceRegistry } from "./types.js";
 
 // Fingerprinting covers all input types, unlike the detector's source-language allowlist.
@@ -179,6 +182,14 @@ export function fingerprintProject(root: string): ProjectFingerprint {
 		walk(canonicalRoot);
 	}
 	// Detectors may inspect Git-ignored source. Keep their actual inputs in the snapshot too.
+	for (const path of [CONFIG_FILE, ...OWNER_FILES])
+		if (existsSync(resolve(canonicalRoot, path))) add(resolve(canonicalRoot, path));
+	try {
+		const baseline = readTeamConfig(canonicalRoot).baseline;
+		if (baseline) add(resolve(canonicalRoot, baseline));
+	} catch {
+		note("Team configuration is invalid; correct it before scanning.");
+	}
 	const scanner = walkRepo(canonicalRoot, { maxFiles: MAX_INPUT_FILES });
 	for (const file of scanner.files) add(file.abs);
 	if (scanner.truncated) note("Scanner input discovery was incomplete; reduce the project scope.");

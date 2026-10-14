@@ -72,7 +72,11 @@ export default function projectAwareQaExtension(pi: ExtensionAPI): void {
 			if (!args) return;
 			ctx.ui.setStatus("qa", "⏳ scanning…");
 			ctx.ui.setWorkingMessage("project-aware-qa: scanning repository…");
-			const result = runScan(ctx.cwd, { maxFiles: args.maxFiles });
+			const result = runScan(ctx.cwd, {
+				maxFiles: args.maxFiles,
+				baseline: args.baseline,
+				saveBaseline: args.saveBaseline,
+			});
 			ctx.ui.setWorkingMessage();
 			surface(pi, ctx, "qa-scan", result);
 		},

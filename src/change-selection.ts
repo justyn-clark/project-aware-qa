@@ -1,4 +1,12 @@
 import { execFileSync } from "node:child_process";
+import {
+	affectedRoots,
+	type DependencyGraph,
+	dependencyGraph,
+	ownerOf,
+	surfaceRoots,
+} from "./dependency-graph.js";
+import { CONFIG_FILE } from "./team-config.js";
 import type { ProjectInfo, Surface, SurfaceRegistry } from "./types.js";
 
 const MAX_CHANGED_FILES = 20_000;
@@ -33,6 +41,10 @@ export interface ChangeSelection {
 	stackRoots: string[];
 	surfaceIds: string[];
 	globalImpact: boolean;
+	dependencyGraph: DependencyGraph;
+	affectedRoots: string[];
+	directSurfaceIds: string[];
+	reasons: string[];
 }
 
 function git(root: string, args: string[]): string {
@@ -48,7 +60,7 @@ function git(root: string, args: string[]): string {
 function paths(output: string): string[] {
 	return output
 		.split("\0")
-		.map((path) => path.replace(/^\.\//, "").replaceAll("\\", "/"))
+		.map((path) => path.replace(/^\.\//, ""))
 		.filter(
 			(path) =>
 				path &&
@@ -64,9 +76,18 @@ function paths(output: string): string[] {
 
 function changedPaths(root: string, baseCommit: string): string[] {
 	const outputs = [
-		git(root, ["diff", "--relative", "--name-only", "-z", `${baseCommit}...HEAD`, "--", "."]),
-		git(root, ["diff", "--relative", "--name-only", "-z", "--cached", "--", "."]),
-		git(root, ["diff", "--relative", "--name-only", "-z", "--", "."]),
+		git(root, [
+			"diff",
+			"--no-renames",
+			"--relative",
+			"--name-only",
+			"-z",
+			`${baseCommit}...HEAD`,
+			"--",
+			".",
+		]),
+		git(root, ["diff", "--no-renames", "--relative", "--name-only", "-z", "--cached", "--", "."]),
+		git(root, ["diff", "--no-renames", "--relative", "--name-only", "-z", "--", "."]),
 		git(root, ["ls-files", "--others", "--exclude-standard", "-z", "--", "."]),
 	];
 	const files = [...new Set(outputs.flatMap(paths))].sort();
@@ -108,33 +129,52 @@ export function selectChanges(
 		throw new Error(`Cannot resolve change-selection base ref ${JSON.stringify(ref)}.`);
 	}
 	const changedFiles = changedPaths(root, baseCommit);
-	const roots = [...new Set(project.stacks.map((stack) => stack.rootRel))].sort(
-		(a, b) => b.length - a.length || a.localeCompare(b),
-	);
-	const ownerOf = (file: string) =>
-		roots.find((candidate) => !candidate || file.startsWith(`${candidate}/`));
-	// Unmapped shared files can affect every package; prefer extra checks to under-selection.
-	const globalImpact =
-		changedFiles.some(isGlobal) || changedFiles.some((file) => ownerOf(file) === undefined);
-	const stackRoots = globalImpact
-		? [...roots].sort()
-		: [
-				...new Set(
-					changedFiles.flatMap((file) => {
-						const owner = ownerOf(file);
-						return owner === undefined ? [] : [owner];
-					}),
-				),
-			].sort();
-	const surfaceIds = globalImpact
-		? registry.surfaces.map((surface) => surface.id).sort()
-		: registry.surfaces
-				.filter((surface) => {
-					const files = surfaceFiles(surface);
-					return changedFiles.some((file) => files.has(file));
-				})
-				.map((surface) => surface.id)
-				.sort();
+	const graph = dependencyGraph(root, project);
+	const reasons: string[] = [];
+	for (const file of changedFiles) {
+		const owner = ownerOf(file, graph.roots);
+		// A changed/deleted manifest may have removed an edge, so the current graph alone is insufficient.
+		if (
+			isGlobal(file) ||
+			file === CONFIG_FILE ||
+			/(^|\/)(package.json|go.mod|Cargo.toml|mix.exs|pyproject.toml|pom.xml|build.gradle)$/.test(
+				file,
+			)
+		)
+			reasons.push(`Dependency or global configuration changed: ${file}`);
+		else if (owner === undefined || owner === "")
+			reasons.push(`Root or unmapped shared input: ${file}`);
+	}
+	const globalImpact = reasons.length > 0;
+	const affected = globalImpact
+		? graph.roots
+		: affectedRoots(
+				graph,
+				changedFiles.flatMap((file) => {
+					const owner = ownerOf(file, graph.roots);
+					return owner === undefined ? [] : [owner];
+				}),
+			);
+	const stackRoots = [
+		...new Set(
+			project.stacks
+				.filter((stack) => affected.includes(stack.rootRel))
+				.map((stack) => stack.rootRel),
+		),
+	].sort();
+	const directSurfaceIds = registry.surfaces
+		.filter((surface) => changedFiles.some((file) => surfaceFiles(surface).has(file)))
+		.map((surface) => surface.id)
+		.sort();
+	// Helpers, layouts, DTOs and dependency changes can affect any surface in a selected service.
+	const surfaceIds = registry.surfaces
+		.filter(
+			(surface) =>
+				globalImpact ||
+				surfaceRoots(surface, graph.roots).some((owner) => affected.includes(owner)),
+		)
+		.map((surface) => surface.id)
+		.sort();
 	return {
 		mode: "changed",
 		baseRef: ref,
@@ -143,5 +183,9 @@ export function selectChanges(
 		stackRoots,
 		surfaceIds,
 		globalImpact,
+		dependencyGraph: graph,
+		affectedRoots: affected,
+		directSurfaceIds,
+		reasons,
 	};
 }

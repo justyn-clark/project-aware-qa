@@ -11,7 +11,7 @@ export interface PolicyEvaluation extends VerificationPolicy {
 }
 
 export function normalizeRequiredChecks(checks: string[]): string[] {
-	const normalized = checks.map((check) => check.trim().toLowerCase()).filter(Boolean);
+	const normalized = checks.map((check) => check.trim().toLowerCase());
 	for (const check of normalized) {
 		if (!/^[a-z0-9][a-z0-9._:-]*$/.test(check)) {
 			throw new Error(`Invalid required check ${JSON.stringify(check)}.`);

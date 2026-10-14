@@ -19,13 +19,14 @@ Usage: project-aware-qa <scan|plan|verify|report> [directory] [options]
   report    Summarize current evidence and outstanding gaps
 
 All commands: --root <directory>, --json
-Scan: --max-files <positive integer>
+Scan: --max-files <positive integer>, --baseline <repo-relative-path>, --save-baseline
 Verify: --scope <value>, --tests, --install, --screenshots,
         --start-dev-server, --base-url <url>, --max-routes <n>, --timeout <ms>
         --changed-since <git-ref>, --require <id,id>, --fail-on-incomplete,
-        --junit, --sarif
+        --junit, --sarif, --service <repo-relative-root>
 
-Verification is advisory unless an explicit --require/--fail-on-incomplete policy is supplied.
+Team configuration: .project-aware-qa.json (dependencies, policy, baseline, suppressions, behaviorChecks).
+Verification is advisory unless a repository or CLI policy is supplied.
 Exit 0 means the operation completed without failed checks; exit 1 means failure.
 `);
 } else {
@@ -36,7 +37,11 @@ Exit 0 means the operation completed without failed checks; exit 1 means failure
 		const args = parseQaArgs(argv.slice(1), command as QaCommand);
 		const result =
 			command === "scan"
-				? runScan(args.root, { maxFiles: args.maxFiles })
+				? runScan(args.root, {
+						maxFiles: args.maxFiles,
+						baseline: args.baseline,
+						saveBaseline: args.saveBaseline,
+					})
 				: command === "plan"
 					? runPlan(args.root, { scope: args.scope })
 					: command === "verify"

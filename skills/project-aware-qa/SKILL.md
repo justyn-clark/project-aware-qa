@@ -22,6 +22,16 @@ probe to back it.
 (`high`), or `admin`. `/qa-verify` flags: `--install`, `--tests`, `--screenshots`,
 `--start-dev-server`, `--base-url <url>`, `--max-routes <n>`, `--timeout <ms>`,
 `--changed-since <git-ref>`, `--require <id,id>`, `--fail-on-incomplete`, `--junit`, `--sarif`.
+Use `--service <repo-relative-root>` with a base URL when several applications expose routes.
+Scan accepts `--baseline <repo-relative-path>` and `--save-baseline`.
+
+Read `.project-aware-qa.json` when present: it defines cross-service dependencies, required
+checks, baseline policy, expiring gap suppressions and behavior suites. Review
+`.qa/team-report.md` for CODEOWNERS hints and baseline changes. Suppressions never override
+failed checks. Behavior suites need `--tests`; their exact surface mappings are declarations,
+not inferred exhaustive coverage. Supply credentials only through the configured environment
+names. Fresh Playwright JSON reports reject empty, skipped and flaky runs; configured trace
+attachments are archived and hashed. Review traces for sensitive data before sharing.
 
 You can also run the steps as scripts when outside Pi:
 `tsx scripts/scan.ts <dir>`, `plan.ts`, `verify.ts`, `report.ts`.

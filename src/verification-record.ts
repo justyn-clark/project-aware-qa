@@ -43,6 +43,7 @@ export function captureEvidenceManifest(root: string, result: VerifyResult): Evi
 	const issues: string[] = [];
 	const refs = new Set<string>();
 	for (const check of result.checks) {
+		for (const attachment of check.attachments ?? []) refs.add(attachment);
 		if (check.evidencePath) refs.add(check.evidencePath);
 		else if (check.command && (check.status === "passed" || check.status === "failed")) {
 			issues.push(`Command evidence is not recorded for ${check.id}.`);
@@ -122,6 +123,7 @@ export interface VerificationSummary {
 export function readVerificationSummary(
 	root: string,
 	registry: SurfaceRegistry,
+	now = new Date(),
 ): VerificationSummary | undefined {
 	const file = qaPath(root, "verification.json");
 	const unknown = (state: "stale" | "unverified", reason: string): VerificationSummary => ({
@@ -142,6 +144,9 @@ export function readVerificationSummary(
 	}
 	try {
 		const record = JSON.parse(readFileSync(file, "utf8")) as VerificationRecord;
+		const preflightError = (record as VerificationRecord & { preflightError?: string })
+			.preflightError;
+		if (preflightError) return unknown("unverified", preflightError);
 		if (
 			record.version !== 1 ||
 			!record.sourceBefore ||
@@ -154,6 +159,12 @@ export function readVerificationSummary(
 			return unknown("unverified", "Verification metadata is invalid. Run /qa-verify again.");
 		}
 		const current = fingerprintProject(root);
+		if (
+			record.result.team?.suppressions.some(
+				(entry) => entry.status === "active" && entry.expires < now.toISOString().slice(0, 10),
+			)
+		)
+			return unknown("stale", "A suppression expired since verification. Run verification again.");
 		if (!current.complete) {
 			return unknown(
 				"unverified",

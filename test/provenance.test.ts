@@ -53,7 +53,11 @@ test("verify refuses stale source before executing repository commands", async (
 	assert.equal(result.ok, false);
 	assert.equal(result.outcome, "incomplete");
 	assert.match(result.summary, /stale/);
-	assert.equal(existsSync(join(root, ".qa", "verification.json")), false);
+	assert.deepEqual(
+		result.verify?.checks.map((check) => check.id),
+		["preflight"],
+	);
+	assert.equal(existsSync(join(root, ".qa", "verification.json")), true);
 });
 
 test("verification records keep unique evidence and preserve every status", async (t) => {

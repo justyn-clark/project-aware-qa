@@ -91,7 +91,7 @@ node dist/src/cli.js report /path/to/repo
 ```
 
 For a pull request or CI job, scan the exact checkout and restrict verification to the
-changed stacks and directly affected routes:
+changed stacks, their consumers, and affected service routes:
 
 ```bash
 project-aware-qa scan . --json
@@ -100,8 +100,12 @@ project-aware-qa verify . --changed-since origin/main --tests \
 ```
 
 `--changed-since` combines the Git three-dot diff with staged, unstaged, and untracked files.
-Root configuration and unmapped shared files conservatively select every stack. The selection
-and resolved base commit are recorded in each run as `change-selection.json`.
+Local Node dependencies propagate transitively, including packages without runnable scripts.
+Explicit cross-service dependencies live in `.project-aware-qa.json`. Root/shared inputs,
+changed manifests and unmapped files conservatively select every stack, including when an
+old dependency edge was removed. Renames include both paths. Helpers select all routes in
+their service before the route limit is applied. The graph, reasons and resolved base commit
+are recorded in each run as `change-selection.json`.
 
 `npm pack` builds the executable before packing. Installing that tarball exposes
 `project-aware-qa` with the same commands, without requiring Pi or `tsx`.
@@ -125,7 +129,32 @@ skipped or inconclusive check. Exit 1 indicates a check or policy failure; cance
 
 `--junit` writes `.qa/verification.junit.xml`; `--sarif` writes
 `.qa/verification.sarif.json`. Immutable copies live in `.qa/runs/<id>/` beside the JSON and
-Markdown reports. CI can upload these standard artifacts without parsing terminal output.
+Markdown reports. Once enabled in a workspace, exports are refreshed on subsequent verification
+attempts, including failed prerequisites, so CI cannot upload an earlier passing result.
+The [CI template](templates/github-actions-qa.yml) checks the PR checkout with full Git history
+and uploads summary artifacts even when verification fails.
+
+### Engineering team workflows
+
+Use [the team guide](templates/team-workflows.md) and
+[configuration example](templates/project-aware-qa.example.json) to configure:
+
+- Dependencies between services and shared directories, plus mandatory checks that CLI defaults cannot weaken.
+- CODEOWNERS routing in `.qa/team-report.md`, using local file precedence and last matching rules.
+- Portable risk/gap baselines and a policy for new or worsened high-risk surfaces.
+- Exact gap suppressions with an owner, reason and UTC expiry. Original findings and failed checks remain visible.
+- Existing authenticated behavior suites, explicit surface mappings, fresh Playwright JSON results and trace attachments.
+
+Create a baseline with `project-aware-qa scan . --save-baseline`, then copy
+`.qa/baseline.json` to a version-controlled path and reference it in team configuration.
+`scan --baseline qa-baseline.json` also supports a one-off comparison. Baselines compare
+inferred risk and gaps, not screenshot pixels. They must use the same tool version.
+
+When several applications expose the same route, use `verify --service apps/web
+--base-url http://localhost:5173` for that visual target. Otherwise visual verification is
+inconclusive and no cross-service route probes run. Package checks still run for all affected
+stacks. Authenticated assertions run through your configured test command with `--tests`;
+pass credentials through environment variable names, never command arguments or config values.
 
 ### Evidence freshness
 
@@ -232,5 +261,10 @@ Validated against `templates/surface-registry.schema.json`.
   they establish a source snapshot, not reproducibility of external services or databases.
 - Process-tree cleanup has local POSIX regression coverage; Windows behavior and real browser
   integration require separate validation. The CI matrix is configuration until run on GitHub.
-- Change selection is file/stack aware but does not yet model dependency graphs between services;
-  root and unmapped shared changes therefore expand to all stacks.
+- Dependency inference covers local Node manifests; declare cross-language and network service
+  relationships explicitly. It is not a complete runtime call graph.
+- Ownership hints reflect the current checkout; GitHub evaluates review routing from the PR base
+  and checks account permissions. This tool does not request reviews or notify owners.
+- Behavior mappings state which suite the team assigns to a surface. Passing a suite does not
+  prove every assertion or user journey is covered. Traces may contain application data;
+  the CI template excludes attachments and raw logs from uploads.

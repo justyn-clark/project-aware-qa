@@ -8,6 +8,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
+import { dependencyGraph } from "./dependency-graph.js";
 import {
 	ensureQaDirs,
 	qaPath,
@@ -34,7 +35,9 @@ import { renderQaReport } from "./report/summary.js";
 import { renderVerificationReport } from "./report/verification.js";
 import { type ScanResult, scanRepo } from "./scanner/index.js";
 import { matchesScope } from "./scope.js";
-import { evaluatePolicy } from "./verification-policy.js";
+import { readTeamConfig } from "./team-config.js";
+import { analyzeTeam, createBaseline, renderTeamReport } from "./team-insights.js";
+import { evaluatePolicy, normalizeRequiredChecks } from "./verification-policy.js";
 import {
 	captureEvidenceManifest,
 	readVerificationSummary,
@@ -59,7 +62,12 @@ export interface ScanStepResult extends StepResult {
 /** Phase 2-4: scan, infer, write registry + scan/crud/risk reports. */
 export function runScan(
 	root: string,
-	options: { maxFiles?: number; generatedAt?: string } = {},
+	options: {
+		maxFiles?: number;
+		generatedAt?: string;
+		baseline?: string;
+		saveBaseline?: boolean;
+	} = {},
 ): ScanStepResult {
 	const written: string[] = [];
 	try {
@@ -67,14 +75,21 @@ export function runScan(
 		if (invalidRoot) throw new Error(invalidRoot);
 		const before = fingerprintProject(root);
 		const scan = scanRepo(root, options);
+		const config = readTeamConfig(root);
+		if (options.baseline) config.baseline = options.baseline;
+		dependencyGraph(root, scan.project, config); // Validate graph configuration before writing scan artifacts.
 		const after = fingerprintProject(root);
 		scan.registry.provenance = {
 			...after,
 			complete: sameFingerprint(before, after) && !scan.repo.truncated,
 		};
+		scan.registry.team = analyzeTeam(root, scan.registry, config);
 		const { valid, errors } = validateRegistry(scan.registry);
 		ensureQaDirs(root);
 		written.push(writeJsonArtifact(root, "surface-registry.json", scan.registry));
+		written.push(writeArtifact(root, "team-report.md", renderTeamReport(scan.registry.team)));
+		if (options.saveBaseline)
+			written.push(writeJsonArtifact(root, "baseline.json", createBaseline(scan.registry)));
 		written.push(writeArtifact(root, "scan-report.md", renderScanReport(scan)));
 		written.push(
 			writeArtifact(root, "crud-matrix.md", renderCrudMatrix(scan.flows, scan.registry)),
@@ -136,32 +151,120 @@ export interface VerifyStepResult extends StepResult {
 	verify?: VerifyResult;
 }
 
+/** Once enabled, latest machine exports are refreshed on every attempt, including preflight failures. */
+function exportFormats(options: VerifyOptions): Array<"junit" | "sarif"> {
+	return [
+		...new Set([
+			...(options.exportFormats ?? []),
+			...(["junit", "sarif"] as const).filter((format) =>
+				existsSync(
+					qaPath(
+						options.root,
+						format === "junit" ? "verification.junit.xml" : "verification.sarif.json",
+					),
+				),
+			),
+		]),
+	];
+}
+
+function preflightFailure(
+	options: VerifyOptions,
+	message: string,
+	incomplete = false,
+): VerifyStepResult {
+	const result: VerifyStepResult = {
+		ok: false,
+		outcome: incomplete ? "incomplete" : "failed",
+		summary: message,
+		error: message,
+		writtenFiles: [],
+	};
+	if (validateProjectRoot(options.root)) return result;
+	try {
+		const registry = readRegistry(options.root);
+		const verify: VerifyResult = {
+			root: options.root,
+			generatedAt: new Date().toISOString(),
+			runId: randomUUID(),
+			project: registry?.project ?? {
+				root: options.root,
+				packageManager: "unknown",
+				frameworks: [],
+				scripts: {},
+				testRunners: [],
+				packageJsonPaths: [],
+				dependencies: {},
+				stacks: [],
+			},
+			registry,
+			checks: [
+				{ id: "preflight", title: "Verification prerequisites", status: "failed", reason: message },
+			],
+			probes: [],
+			screenshots: [],
+			baseUrl: "",
+		};
+		const prefix = `runs/${verify.runId}`;
+		const record = {
+			version: 1,
+			runId: verify.runId,
+			tool: TOOL,
+			result: verify,
+			preflightError: message,
+		};
+		for (const path of [`${prefix}/verification.json`, "verification.json"])
+			result.writtenFiles.push(writeJsonArtifact(options.root, path, record));
+		for (const path of [`${prefix}/verification-report.md`, "verification-report.md"])
+			result.writtenFiles.push(writeArtifact(options.root, path, renderVerificationReport(verify)));
+		for (const format of exportFormats(options)) {
+			const name = format === "junit" ? "verification.junit.xml" : "verification.sarif.json";
+			const content = format === "junit" ? renderJUnit(verify) : renderSarif(verify);
+			for (const path of [`${prefix}/${name}`, name])
+				result.writtenFiles.push(writeArtifact(options.root, path, content));
+		}
+		result.verify = verify;
+	} catch (error) {
+		result.error += ` Could not persist failure evidence: ${(error as Error).message}`;
+	}
+	return result;
+}
+
 /** Phase 6-7: run the safe-check ladder and write the evidence report. */
 export async function runVerify(options: VerifyOptions): Promise<VerifyStepResult> {
 	const root = options.root;
 	if (!registryExists(root)) {
-		return {
-			ok: false,
-			summary: "No surface registry found — run /qa-scan first.",
-			writtenFiles: [],
-			error: "missing .qa/surface-registry.json",
-		};
+		return preflightFailure(
+			options,
+			"No surface registry found — run /qa-scan first. Missing .qa/surface-registry.json",
+		);
 	}
 	try {
+		const config = readTeamConfig(root);
+		options = {
+			...options,
+			requiredChecks: normalizeRequiredChecks([
+				...config.policy.requiredChecks,
+				...(options.requiredChecks ?? []),
+			]),
+			failOnIncomplete: config.policy.failOnIncomplete || options.failOnIncomplete,
+		};
 		ensureQaDirs(root);
 		const registry = readRegistry(root);
+		if (!registry || !validateRegistry(registry).valid)
+			throw new Error("Invalid surface registry. Run /qa-scan again.");
 		const before = fingerprintProject(root);
 		if (!registry?.provenance || !sameFingerprint(registry.provenance, before)) {
-			return {
-				ok: false,
-				outcome: "incomplete",
-				summary: `Registry is stale, incomplete, or lacks source provenance. Run /qa-scan before verifying.${before.issues?.length ? ` ${before.issues.join("; ")}` : ""}`,
-				writtenFiles: [],
-			};
+			return preflightFailure(
+				options,
+				`Registry is stale, incomplete, or lacks source provenance. Run /qa-scan before verifying.${before.issues?.length ? ` ${before.issues.join("; ")}` : ""}`,
+				true,
+			);
 		}
 		const runId = randomUUID();
 		const prefix = `runs/${runId}`;
 		const verify = await runVerification({ ...options, artifactPrefix: prefix });
+		verify.runId = runId;
 		const after = fingerprintProject(root);
 		if (!sameFingerprint(before, after)) {
 			verify.checks.push({
@@ -198,7 +301,7 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyStepResul
 		}
 		evidence = captureEvidenceManifest(root, verify);
 		const machineFiles: string[] = [];
-		for (const format of new Set(options.exportFormats ?? [])) {
+		for (const format of exportFormats(options)) {
 			if (format === "junit") {
 				machineFiles.push(
 					writeArtifact(root, `${prefix}/verification.junit.xml`, renderJUnit(verify)),
@@ -227,6 +330,12 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyStepResul
 		const report = renderVerificationReport(verify);
 		const archived = writeArtifact(root, `${prefix}/verification-report.md`, report);
 		const file = writeArtifact(root, "verification-report.md", report);
+		if (verify.team) {
+			machineFiles.push(
+				writeArtifact(root, `${prefix}/team-report.md`, renderTeamReport(verify.team)),
+			);
+			machineFiles.push(writeArtifact(root, "team-report.md", renderTeamReport(verify.team)));
+		}
 		const passed = verify.checks.filter((c) => c.status === "passed").length;
 		const failed = verify.checks.filter((c) => c.status === "failed").length;
 		const skipped = verify.checks.filter((c) => c.status === "skipped").length;
@@ -240,12 +349,10 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyStepResul
 			verify,
 		};
 	} catch (e) {
-		return {
-			ok: false,
-			summary: "Verification failed to run",
-			writtenFiles: [],
-			error: e instanceof Error ? `${e.message}\n${e.stack ?? ""}` : String(e),
-		};
+		return preflightFailure(
+			options,
+			`Verification failed to run: ${e instanceof Error ? e.message : String(e)}`,
+		);
 	}
 }
 

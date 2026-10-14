@@ -12,13 +12,18 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { type ChangeSelection, selectChanges } from "../change-selection.js";
+import { dependencyGraph, surfaceRoots } from "../dependency-graph.js";
 import { detectPlaywright } from "../detectors/playwright.js";
 import { readRegistry, writeArtifact } from "../io.js";
 import { validateRegistry } from "../registry/schema.js";
 import { clearFileCache, walkRepo } from "../scanner/files.js";
+import { matchesScope } from "../scope.js";
 import { scanStacks } from "../stacks/index.js";
+import { readTeamConfig, repoPath } from "../team-config.js";
+import { analyzeTeam, type TeamInsights } from "../team-insights.js";
 import type { ProjectInfo, StackInfo, SurfaceRegistry } from "../types.js";
 import type { PolicyEvaluation } from "../verification-policy.js";
+import { runBehaviorChecks, validateBehaviorChecks } from "./behavior.js";
 import {
 	packageManagerInstall,
 	type RunResult,
@@ -54,6 +59,9 @@ export interface CheckResult {
 	summary?: string;
 	/** Path (relative to .qa) of the saved command log. */
 	evidencePath?: string;
+	attachments?: string[];
+	surfaceIds?: string[];
+	behaviorTests?: { expected: number; unexpected: number; flaky: number; skipped: number };
 }
 
 export interface VerifyOptions {
@@ -72,6 +80,8 @@ export interface VerifyOptions {
 	/** Start the project's dev server before route probes/screenshots, then stop it. */
 	startDevServer?: boolean;
 	baseUrl?: string;
+	/** Service root for visual probes when multiple applications share route paths. */
+	service?: string;
 	maxRoutes?: number;
 	timeoutMs?: number;
 	/** Restrict checks and routes to changes since this Git ref, plus local changes. */
@@ -95,6 +105,8 @@ export interface VerifyResult {
 	baseUrl: string;
 	selection?: ChangeSelection;
 	policy?: PolicyEvaluation;
+	team?: TeamInsights;
+	runId?: string;
 }
 
 function artifactPath(prefix: string | undefined, path: string): string {
@@ -157,6 +169,15 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 	const registry = readRegistry(root);
 	const checks: CheckResult[] = [];
 	const timeoutMs = options.timeoutMs;
+	const config = readTeamConfig(root);
+	const graph = dependencyGraph(root, project, config);
+	if (repo.truncated)
+		throw new Error("Verification discovery was truncated; narrow the project root.");
+	if (registry) validateBehaviorChecks(root, config, registry);
+	const team = registry ? analyzeTeam(root, registry, config) : undefined;
+	const service = options.service === undefined ? undefined : repoPath(options.service);
+	if (service !== undefined && !graph.roots.includes(service))
+		throw new Error(`Unknown service root: ${options.service}`);
 
 	// 1. Registry validation.
 	if (!registry) {
@@ -202,6 +223,27 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 		await runStackLadder(stack, { root, multi, options, timeoutMs }, checks);
 		options.signal?.throwIfAborted();
 	}
+	if (registry)
+		checks.push(...(await runBehaviorChecks(config, registry, options, selection?.surfaceIds)));
+	if (team?.suppressions.some((entry) => entry.status !== "active"))
+		checks.push({
+			id: "suppressions",
+			title: "Suppression expiry and mappings",
+			status: "inconclusive",
+			reason:
+				"Expired or unmatched suppressions require review; see team-report.md. They were not applied.",
+		});
+	if (config.policy.failOnNewHighRisk)
+		checks.push({
+			id: "baseline",
+			title: "No new unaccepted high-risk surfaces",
+			status: !team?.baseline || team.baseline.newHighRisk.length ? "failed" : "passed",
+			reason: !team?.baseline ? "failOnNewHighRisk requires a configured baseline" : undefined,
+			summary: team?.baseline
+				? `${team.baseline.newHighRisk.length} new/worsened high-risk surfaces`
+				: undefined,
+			surfaceIds: team?.baseline?.newHighRisk,
+		});
 
 	// 6. Targeted route probes + 7. screenshots.
 	const baseUrl = resolveBaseUrl({
@@ -213,13 +255,34 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 	let probes: RouteProbe[] = [];
 	let screenshots: ScreenshotResult[] = [];
 
-	let visualSurfaces = registry
-		? selectVisualRoutes(registry, { max: options.maxRoutes ?? 15, scope: options.scope })
-		: [];
-	if (selection) {
-		const affected = new Set(selection.surfaceIds);
-		visualSurfaces = visualSurfaces.filter((surface) => affected.has(surface.id));
-	}
+	const candidates =
+		registry?.surfaces.filter(
+			(surface) =>
+				matchesScope(surface, options.scope) &&
+				(!selection || selection.surfaceIds.includes(surface.id)) &&
+				(service === undefined || surfaceRoots(surface, graph.roots).includes(service)),
+		) ?? [];
+	const visualOwners = new Set(
+		candidates
+			.filter((surface) => surface.type === "visual-page")
+			.flatMap((surface) => surfaceRoots(surface, graph.roots)),
+	);
+	const ambiguous = visualOwners.size > 1;
+	if (ambiguous)
+		checks.push({
+			id: "route-service",
+			title: "Route service selection",
+			status: "inconclusive",
+			reason:
+				"Multiple applications selected. Specify --service <repo-relative-root> and --base-url for this visual run, or use per-service behavior checks.",
+		});
+	const visualSurfaces =
+		registry && !ambiguous
+			? selectVisualRoutes(
+					{ ...registry, surfaces: candidates },
+					{ max: options.maxRoutes ?? 15, scope: options.scope },
+				)
+			: [];
 	const routePaths = visualSurfaces.map((s) => s.frontendRoute as string);
 	let devServer: ReturnType<typeof spawn> | undefined;
 	let devRun: RunResult | undefined;
@@ -239,7 +302,9 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 				options.signal,
 			);
 			options.signal?.throwIfAborted();
-			const devStack = selectedStacks.find((s) => s.checks.dev);
+			const devStack = selectedStacks.find(
+				(s) => s.checks.dev && (!visualOwners.size || visualOwners.has(s.rootRel)),
+			);
 			const dev = devStack?.checks.dev;
 			if (alreadyUp) {
 				checks.push({
@@ -314,7 +379,7 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 				status: "skipped",
 				reason: registry
 					? selection
-						? "No renderable routes were directly affected by the selected changes"
+						? "No renderable routes selected for this change/service scope"
 						: "No renderable routes selected for this scope"
 					: "No registry — run /qa-scan",
 			});
@@ -437,6 +502,7 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 		screenshots,
 		baseUrl,
 		selection,
+		team,
 	};
 }
 

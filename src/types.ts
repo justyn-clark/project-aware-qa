@@ -147,6 +147,7 @@ export interface RegistryStats {
 
 /** The full artifact written to `.qa/surface-registry.json`. */
 export interface SurfaceRegistry {
+	team?: import("./team-insights.js").TeamInsights;
 	schema: string;
 	version: string;
 	generatedAt: string;

@@ -238,10 +238,13 @@ for (const entry of ["src/cli.ts", "scripts/verify.ts"]) {
 				false,
 				"cancellation must prevent the next check",
 			);
-			assert.equal(
-				existsSync(join(temp, ".qa", "verification.json")),
-				false,
-				"cancelled run must not publish successful verification",
+			const cancelledRecord = JSON.parse(
+				readFileSync(join(temp, ".qa", "verification.json"), "utf8"),
+			);
+			assert.deepEqual(
+				cancelledRecord.result.checks.map((check: { status: string }) => check.status),
+				["failed"],
+				"cancelled run must publish failure evidence, never successful verification",
 			);
 		} finally {
 			if (watchdog) clearTimeout(watchdog);

@@ -14,6 +14,12 @@ to [Semantic Versioning](https://semver.org/).
 - CI configuration for Node 22/24/26 on Linux and Node 24 on macOS, including a packed CLI smoke test.
 - Git change-aware stack/route selection, enforceable required-check policies, and JUnit/SARIF
   exports for CI systems.
+- Versioned team configuration, transitive local package dependencies and explicit cross-service edges.
+- CODEOWNERS routing, portable risk/gap baselines, optional new-high-risk gates, and expiring
+  suppressions with visible owner/reason metadata.
+- Opt-in behavior suites with declared surface mappings, environment-based authentication,
+  fresh Playwright JSON verdicts and digest-bound trace attachments.
+- A team integration guide, example configuration and PR workflow template.
 
 ### Fixed
 - Node monorepo checks retain their package directories and package managers. Parent
@@ -21,6 +27,7 @@ to [Semantic Versioning](https://semver.org/).
 - Related test files now mean unknown coverage, and no longer lower risk or claim
   successful happy-path/validation coverage. Cache links remain unproven until verified.
 - A successful desktop screenshot cannot hide a failed mobile capture.
+- Screenshot capture resolves Playwright's CommonJS default export as well as named ESM exports.
 - Owned dev servers start before probes and are stopped after completion or cancellation.
   Timeouts and cancellation clean up descendant processes.
 - Reports preserve inconclusive results and reject stale, missing, or changed evidence.
@@ -28,6 +35,10 @@ to [Semantic Versioning](https://semver.org/).
   paths, positive numeric options, and errors before any work on invalid arguments.
 - Plan and verification scopes consistently select risk, surface type, entity, and route.
 - HTML templates reach Python form detection; runtime tool metadata uses the package version.
+- Affected service routes are filtered before sampling; ambiguous multi-app visual targets require
+  explicit service selection. Renames and removed manifests retain conservative change impact.
+- Failed verification prerequisites replace stale CI exports. Suppression expiry invalidates
+  old evidence; skipped/flaky/empty Playwright runs cannot claim a passing behavior result.
 
 ## [0.2.2] — 2026-10-14
 

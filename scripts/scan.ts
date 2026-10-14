@@ -11,7 +11,11 @@ import { parseArgs, printResult, runCli } from "./lib.js";
 await runCli(
 	async () => {
 		const args = parseArgs(process.argv.slice(2), "scan");
-		const result = runScan(args.root, { maxFiles: args.maxFiles });
+		const result = runScan(args.root, {
+			maxFiles: args.maxFiles,
+			baseline: args.baseline,
+			saveBaseline: args.saveBaseline,
+		});
 		printResult(`qa-scan ${args.root}`, result, args.flags.has("json"));
 	},
 	wantsJson(process.argv.slice(2)),

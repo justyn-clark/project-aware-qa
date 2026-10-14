@@ -394,6 +394,9 @@ async function resolveChromium(targetRoot: string): Promise<unknown | null> {
 				const resolved = require.resolve(mod);
 				const imported = (await import(pathToFileURL(resolved).href)) as Record<string, unknown>;
 				if (imported.chromium) return imported.chromium;
+				// CommonJS packages that re-export dynamically may expose only `default` to ESM.
+				const commonjs = imported.default as Record<string, unknown> | undefined;
+				if (commonjs?.chromium) return commonjs.chromium;
 			} catch {
 				// try next
 			}

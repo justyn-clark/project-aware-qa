@@ -85,6 +85,10 @@ export function renderQaReport(inputs: QaReportInputs): string {
 	}
 
 	lines.push("\n## Artifacts\n");
+	if (registry.team)
+		lines.push(
+			"- `.qa/team-report.md` — CODEOWNERS routing, baseline changes and expiring suppressions\n",
+		);
 	const artifactRows: Array<[string, boolean, string]> = [
 		[".qa/surface-registry.json", true, "machine-readable surface registry"],
 		[".qa/scan-report.md", artifacts.scanReport, "scan overview"],

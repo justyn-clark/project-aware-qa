@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { normalizeRequiredChecks } from "./verification-policy.js";
 
 export type QaCommand = "scan" | "plan" | "verify" | "report";
 
@@ -16,6 +17,7 @@ export interface VerifyFlags {
 	runScreenshots: boolean;
 	startDevServer: boolean;
 	baseUrl?: string;
+	service?: string;
 	maxRoutes?: number;
 	timeoutMs?: number;
 	changedSince?: string;
@@ -31,6 +33,8 @@ export interface ParsedArgs {
 	positionals: string[];
 	scope?: string;
 	maxFiles?: number;
+	baseline?: string;
+	saveBaseline?: boolean;
 }
 
 const VERIFY_BOOLEANS = [
@@ -43,9 +47,9 @@ const VERIFY_BOOLEANS = [
 	"sarif",
 ];
 const VALUE_OPTIONS: Record<QaCommand, string[]> = {
-	scan: ["max-files"],
+	scan: ["max-files", "baseline"],
 	plan: ["scope"],
-	verify: ["scope", "base-url", "max-routes", "timeout", "changed-since", "require"],
+	verify: ["scope", "base-url", "service", "max-routes", "timeout", "changed-since", "require"],
 	report: [],
 };
 const NUMBER_OPTIONS = new Set(["max-files", "max-routes", "timeout"]);
@@ -104,6 +108,7 @@ export function parseQaArgs(
 	const values = new Map<string, string>();
 	const positionals: string[] = [];
 	const booleans = new Set([
+		...(command === "scan" ? ["save-baseline"] : []),
 		...(command === "verify" ? VERIFY_BOOLEANS : []),
 		...(mode === "cli" ? ["json"] : []),
 	]);
@@ -157,6 +162,13 @@ export function parseQaArgs(
 	if (hasScope && values.has("scope") && positionals[scopeIndex] !== undefined) {
 		throw new ArgumentError("Scope was provided both positionally and with --scope.");
 	}
+	if (values.has("require")) {
+		try {
+			normalizeRequiredChecks((values.get("require") as string).split(","));
+		} catch (error) {
+			throw new ArgumentError((error as Error).message);
+		}
+	}
 	return {
 		root: resolve(
 			options.cwd ?? process.cwd(),
@@ -167,6 +179,8 @@ export function parseQaArgs(
 		positionals,
 		scope: hasScope ? (values.get("scope") ?? positionals[scopeIndex]) : undefined,
 		maxFiles: values.has("max-files") ? Number(values.get("max-files")) : undefined,
+		baseline: values.get("baseline"),
+		saveBaseline: flags.has("save-baseline"),
 	};
 }
 
@@ -187,6 +201,7 @@ export function verifyFlags(args: ParsedArgs): VerifyFlags {
 		runScreenshots: args.flags.has("screenshots"),
 		startDevServer: args.flags.has("start-dev-server"),
 		baseUrl: args.values.get("base-url"),
+		service: args.values.get("service"),
 		maxRoutes: args.values.has("max-routes") ? Number(args.values.get("max-routes")) : undefined,
 		timeoutMs: args.values.has("timeout") ? Number(args.values.get("timeout")) : undefined,
 		changedSince: args.values.get("changed-since"),

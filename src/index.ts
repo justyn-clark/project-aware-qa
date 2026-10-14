@@ -12,6 +12,7 @@ export {
 	type StepResult,
 	type VerifyStepResult,
 } from "./core.js";
+export { affectedRoots, type DependencyGraph, dependencyGraph } from "./dependency-graph.js";
 export { type CrudFlow, inferCrudFlows } from "./inference/crud.js";
 export { type RiskInput, type RiskResult, scoreRisk } from "./inference/risk.js";
 export {
@@ -27,6 +28,20 @@ export { buildRegistry } from "./registry/build.js";
 export { assertValidRegistry, type ValidationResult, validateRegistry } from "./registry/schema.js";
 export { renderJUnit, renderSarif } from "./report/machine.js";
 export { type ScanOptions, type ScanResult, scanRepo } from "./scanner/index.js";
+export {
+	type BehaviorCheck,
+	readTeamConfig,
+	type Suppression,
+	type TeamConfig,
+} from "./team-config.js";
+export {
+	analyzeTeam,
+	type Baseline,
+	type BaselineComparison,
+	createBaseline,
+	readOwnership,
+	type TeamInsights,
+} from "./team-insights.js";
 export * from "./types.js";
 export {
 	evaluatePolicy,

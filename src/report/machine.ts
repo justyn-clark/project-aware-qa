@@ -1,16 +1,30 @@
 import type { CheckResult, VerifyResult } from "../verify/index.js";
+import { TOOL } from "../version.js";
 
 function xml(value: string): string {
-	return value.replace(/[<>&"']/g, (character) => {
-		const entities: Record<string, string> = {
-			"<": "&lt;",
-			">": "&gt;",
-			"&": "&amp;",
-			'"': "&quot;",
-			"'": "&apos;",
-		};
-		return entities[character] as string;
-	});
+	return [...value]
+		.filter((character) => {
+			const code = character.codePointAt(0) as number;
+			return (
+				code === 9 ||
+				code === 10 ||
+				code === 13 ||
+				(code >= 32 && code <= 0xd7ff) ||
+				(code >= 0xe000 && code <= 0xfffd) ||
+				(code >= 0x10000 && code <= 0x10ffff)
+			);
+		})
+		.join("")
+		.replace(/[<>&"']/g, (character) => {
+			const entities: Record<string, string> = {
+				"<": "&lt;",
+				">": "&gt;",
+				"&": "&amp;",
+				'"': "&quot;",
+				"'": "&apos;",
+			};
+			return entities[character] as string;
+		});
 }
 
 function detail(check: CheckResult): string {
@@ -59,6 +73,22 @@ export function renderSarif(result: VerifyResult): string {
 			...(check.command ? { command: check.command } : {}),
 			...(check.evidencePath ? { evidencePath: `.qa/${check.evidencePath}` } : {}),
 		},
+		locations: (check.surfaceIds ?? []).flatMap((id) => {
+			const surface = result.registry?.surfaces.find((surface) => surface.id === id);
+			const file = surface?.files[0];
+			return file && !file.startsWith("/") && !file.split("/").includes("..")
+				? [
+						{
+							physicalLocation: {
+								artifactLocation: {
+									uri: file.split("/").map(encodeURIComponent).join("/"),
+									uriBaseId: "%SRCROOT%",
+								},
+							},
+						},
+					]
+				: [];
+		}),
 	}));
 	return `${JSON.stringify(
 		{
@@ -69,11 +99,26 @@ export function renderSarif(result: VerifyResult): string {
 					tool: {
 						driver: {
 							name: "project-aware-qa",
+							version: TOOL.version,
 							informationUri: "https://github.com/justyn-clark/project-aware-qa",
 							rules,
 						},
 					},
 					results,
+					invocations: [
+						{
+							executionSuccessful: !result.checks.some(
+								(check) => check.id === "preflight" && check.status === "failed",
+							),
+						},
+					],
+					properties: {
+						runId: result.runId,
+						generatedAt: result.generatedAt,
+						sourceHash: result.registry?.provenance?.inputHash,
+						selection: result.selection,
+						policy: result.policy,
+					},
 				},
 			],
 		},

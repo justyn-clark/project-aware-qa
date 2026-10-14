@@ -108,7 +108,11 @@ test("change selection rejects unsafe or missing refs before repository checks",
 		const result = await runVerify({ root, changedSince });
 		assert.equal(result.ok, false);
 		assert.match(result.error ?? "", /change-selection base ref/i);
-		assert.deepEqual(result.writtenFiles, []);
+		assert.deepEqual(
+			result.verify?.checks.map((check) => check.id),
+			["preflight"],
+		);
+		assert.ok(result.writtenFiles.some((path) => path.endsWith("verification.json")));
 	}
 });
 

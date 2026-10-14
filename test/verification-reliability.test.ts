@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { runCommand } from "../src/verify/commands.js";
 import { runVerification } from "../src/verify/index.js";
-import { waitForServer } from "../src/verify/playwright.js";
+import { captureScreenshots, waitForServer } from "../src/verify/playwright.js";
 
 function put(root: string, path: string, content: string): void {
 	mkdirSync(dirname(join(root, path)), { recursive: true });
@@ -155,6 +155,24 @@ function fakePlaywright(root: string, launchBody?: string): void {
 	`,
 	);
 }
+
+test("screenshots resolve Playwright CommonJS default exports", async (t) => {
+	const root = mkdtempSync(join(tmpdir(), "qa-playwright-commonjs-"));
+	t.after(() => rmSync(root, { recursive: true, force: true }));
+	put(
+		root,
+		"node_modules/playwright/package.json",
+		JSON.stringify({ name: "playwright", main: "index.cjs" }),
+	);
+	put(
+		root,
+		"node_modules/playwright/index.cjs",
+		"module.exports = Object.fromEntries([['chromium', {launch: async () => {throw new Error('default export resolved');}}]]);",
+	);
+	const result = await captureScreenshots({ root, baseUrl: "http://127.0.0.1:9", routes: ["/"] });
+	assert.equal(result.available, true);
+	assert.match(result.results[0]?.error ?? "", /default export resolved/);
+});
 
 test("verification starts server before probing, isolates artifacts, resolves target Playwright, and stops server", async (t) => {
 	const root = mkdtempSync(join(tmpdir(), "qa-verify-runtime-"));

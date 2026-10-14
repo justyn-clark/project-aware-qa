@@ -20,6 +20,7 @@ import type {
 	EndpointInfo,
 	FormInfo,
 	RouteInfo,
+	TestInfo,
 } from "../detectors/types.js";
 import { type CrudFlow, crudCoverageCount, inferCrudFlows } from "../inference/crud.js";
 import { scoreRisk } from "../inference/risk.js";
@@ -36,8 +37,7 @@ import {
 	type SurfaceRegistry,
 	type SurfaceType,
 } from "../types.js";
-
-const TOOL = { name: "project-aware-qa", version: "0.1.0" } as const;
+import { TOOL } from "../version.js";
 
 function slug(s: string): string {
 	return s
@@ -47,29 +47,29 @@ function slug(s: string): string {
 		.slice(0, 80);
 }
 
-/** Index existing tests by the entity/subject tokens they appear to cover. */
-function buildTestIndex(bundle: DetectionBundle): {
-	entities: Set<string>;
-	tokens: Set<string>;
-	hasAny: boolean;
-} {
-	const entities = new Set<string>();
-	const tokens = new Set<string>();
-	for (const t of bundle.tests) {
-		for (const target of t.targets) {
-			tokens.add(target.toLowerCase());
-			entities.add(entityKey(target));
-		}
-	}
-	return { entities, tokens, hasAny: bundle.tests.length > 0 };
+/** Related filenames/imports are discovery hints, never proof of behavioral coverage. */
+function buildTestIndex(bundle: DetectionBundle): TestInfo[] {
+	return bundle.tests;
 }
 
-function entityHasTests(
+function relatedTestEvidence(
 	entity: string | undefined,
 	index: ReturnType<typeof buildTestIndex>,
-): boolean {
-	if (!entity) return false;
-	return index.entities.has(entityKey(entity));
+	handler?: string,
+): EvidenceItem[] {
+	return index
+		.filter((t) =>
+			t.targets.some(
+				(target) =>
+					(Boolean(entity) && entityKey(target) === entityKey(entity as string)) ||
+					(Boolean(handler) && target.toLowerCase() === handler?.toLowerCase()),
+			),
+		)
+		.map((t) => ({
+			kind: "test",
+			file: t.file,
+			detail: "Related test file (name/import match); behavior coverage and execution unknown",
+		}));
 }
 
 function isRenderable(route: RouteInfo): boolean {
@@ -83,9 +83,9 @@ function isRenderable(route: RouteInfo): boolean {
 function makeInferredTest(
 	kind: InferredTest["kind"],
 	description: string,
-	present: boolean,
+	hasRelatedTests: boolean,
 ): InferredTest {
-	return { kind, description, status: present ? "present" : "missing" };
+	return { kind, description, status: hasRelatedTests ? "unknown" : "missing" };
 }
 
 function buildCrudSurfaces(
@@ -122,7 +122,9 @@ function buildCrudSurfaces(
 		const fieldMismatch = flow.formEndpointLinks.some(
 			(l) => l.unmatchedFormFields.length > 0 || l.missingDtoFields.length > 0,
 		);
-		const hasTests = entityHasTests(flow.entity, testIndex);
+		const relatedTests = relatedTestEvidence(flow.entity, testIndex);
+		const hasTests = relatedTests.length > 0;
+		evidence.push(...relatedTests);
 
 		const gaps: string[] = [];
 		const ops = flow.operations;
@@ -132,7 +134,11 @@ function buildCrudSurfaces(
 		if (flow.isAdmin && missingOps.length > 0) {
 			gaps.push(`No detected handler for: ${missingOps.join(", ")}`);
 		}
-		if (!hasTests) gaps.push("No tests reference this entity");
+		gaps.push(
+			hasTests
+				? "Related test files found; coverage of this flow is unknown"
+				: "No related tests detected for this entity",
+		);
 		for (const l of flow.formEndpointLinks) {
 			if (l.missingDtoFields.length > 0) {
 				gaps.push(
@@ -147,7 +153,11 @@ function buildCrudSurfaces(
 			}
 		}
 		for (const m of staleLinks) {
-			gaps.push(`Mutation without detected invalidation: ${m.mutation}`);
+			gaps.push(
+				m.invalidationStatus === "unknown"
+					? `Related invalidation found; execution after mutation is unverified: ${m.mutation}`
+					: `Mutation without detected invalidation: ${m.mutation}`,
+			);
 		}
 
 		const inferredTests: InferredTest[] = [];
@@ -193,7 +203,7 @@ function buildCrudSurfaces(
 			hasForm: flow.forms.length > 0,
 			staleRisk: staleLinks.length > 0,
 			fieldMismatch,
-			hasTests,
+			hasTests: false,
 			crudCoverage: crudCoverageCount(flow),
 			authGated: flow.isAdmin,
 			fileCount: flow.files.length,
@@ -225,17 +235,21 @@ function buildEndpointSurfaces(
 	testIndex: ReturnType<typeof buildTestIndex>,
 ): Surface[] {
 	return endpoints.map((ep) => {
-		const hasTests =
-			entityHasTests(ep.entity, testIndex) || testIndex.tokens.has(ep.handler.toLowerCase());
+		const relatedTests = relatedTestEvidence(ep.entity, testIndex, ep.handler);
+		const hasTests = relatedTests.length > 0;
 		const risk = scoreRisk({
 			type: "api-endpoint",
 			isAdmin: ep.isAdmin,
 			isMutation: ep.isMutation,
-			hasTests,
+			hasTests: false,
 			authGated: ep.isAdmin,
 		});
 		const gaps: string[] = [];
-		if (!hasTests) gaps.push("No spec/e2e references this handler");
+		gaps.push(
+			hasTests
+				? "Related test files found; handler, success, and error-path coverage are unknown"
+				: "No related spec/e2e detected for this handler",
+		);
 		if (ep.isMutation && !ep.bodyDto)
 			gaps.push("No @Body() DTO detected — validation coverage unknown");
 		const inferredTests: InferredTest[] = [
@@ -258,6 +272,7 @@ function buildEndpointSurfaces(
 			riskReasons: risk.reasons,
 			inferredTests,
 			evidence: [
+				...relatedTests,
 				{
 					kind: "endpoint",
 					detail: `${ep.controller}.${ep.handler}`,
@@ -285,12 +300,13 @@ function buildFormSurfaces(
 		const fieldMismatch = Boolean(
 			link && (link.unmatchedFormFields.length > 0 || link.missingDtoFields.length > 0),
 		);
-		const hasTests = entityHasTests(f.entity, testIndex);
+		const relatedTests = relatedTestEvidence(f.entity, testIndex);
+		const hasTests = relatedTests.length > 0;
 		const risk = scoreRisk({
 			type: "form",
 			hasForm: true,
 			fieldMismatch,
-			hasTests,
+			hasTests: false,
 			isMutation: f.method !== "get",
 		});
 		const gaps: string[] = [];
@@ -299,7 +315,11 @@ function buildFormSurfaces(
 		if (link?.unmatchedFormFields.length)
 			gaps.push(`Fields not in DTO: ${link.unmatchedFormFields.join(", ")}`);
 		if (!link?.endpoint) gaps.push("No confidently matched submit endpoint");
-		if (!hasTests) gaps.push("No form/component test detected");
+		gaps.push(
+			hasTests
+				? "Related test files found; form submission and validation coverage are unknown"
+				: "No related form/component test detected",
+		);
 		return {
 			id: `form:${slug(f.file)}-${f.line}`,
 			type: "form" as SurfaceType,
@@ -320,6 +340,7 @@ function buildFormSurfaces(
 			],
 			evidence: [
 				{ kind: "form", detail: `fields: ${f.fields.join(", ")}`, file: f.file, line: f.line },
+				...relatedTests,
 			],
 			gaps,
 		};
@@ -344,7 +365,7 @@ function buildCacheRiskSurfaces(flows: CrudFlow[], cacheSignals: CacheSignal[]):
 			surfaces.push({
 				id,
 				type: "cache-risk",
-				title: `Stale-data risk: ${flow.entity} mutation without invalidation`,
+				title: `Stale-data risk: ${flow.entity} invalidation unverified`,
 				entity: flow.entity,
 				files: [m.file],
 				risk: risk.level,
@@ -357,9 +378,21 @@ function buildCacheRiskSurfaces(flows: CrudFlow[], cacheSignals: CacheSignal[]):
 						false,
 					),
 				],
-				evidence: [{ kind: "mutation", detail: m.mutation, file: m.file, line: m.line }],
+				evidence: [
+					{ kind: "mutation", detail: m.mutation, file: m.file, line: m.line },
+					...m.invalidations.map(
+						(inv): EvidenceItem => ({
+							kind: "invalidation",
+							detail: `Related signal; execution link unknown: ${inv.detail}`,
+							file: inv.file,
+							line: inv.line,
+						}),
+					),
+				],
 				gaps: [
-					`No invalidateQueries / mutate / clearCacheKey / revalidation found for this mutation`,
+					m.invalidationStatus === "unknown"
+						? "Related invalidation signals exist, but execution after this mutation is unverified"
+						: "No invalidateQueries / mutate / clearCacheKey / revalidation found for this mutation",
 				],
 			});
 		}
@@ -406,14 +439,15 @@ function buildRouteSurfaces(
 		if (seenPaths.has(dedupKey)) continue;
 		seenPaths.add(dedupKey);
 		const renderable = isRenderable(r);
-		const hasTests = entityHasTests(r.entity, testIndex);
+		const relatedTests = relatedTestEvidence(r.entity, testIndex);
+		const hasTests = relatedTests.length > 0;
 		const authGated = r.isAdmin || adminEntities.has(entityKey(r.entity ?? ""));
 		const type: SurfaceType = renderable ? "visual-page" : "route";
 		const risk = scoreRisk({
 			type,
 			isAdmin: r.isAdmin,
 			isMutation: r.hasAction,
-			hasTests,
+			hasTests: false,
 			authGated,
 		});
 		const inferredTests: InferredTest[] = [
@@ -431,6 +465,7 @@ function buildRouteSurfaces(
 		if (r.hasAction)
 			inferredTests.push(makeInferredTest("e2e", `Exercise action on ${r.routePath}`, hasTests));
 		const gaps: string[] = [];
+		if (hasTests) gaps.push("Related test files found; route behavior coverage is unknown");
 		if (authGated) gaps.push("Auth-gated: needs credentials/session to verify at runtime");
 		if (r.params.length > 0)
 			gaps.push(`Dynamic params ${r.params.join(", ")}: needs seed data / valid ids`);
@@ -446,6 +481,7 @@ function buildRouteSurfaces(
 			riskReasons: risk.reasons,
 			inferredTests,
 			evidence: [
+				...relatedTests,
 				{
 					kind: "route",
 					detail: `${r.kind}${r.hasLoader ? " loader" : ""}${r.hasAction ? " action" : ""}`,
@@ -467,7 +503,8 @@ function buildTestGapSurfaces(
 		const hasMutation =
 			flow.endpoints.some((e) => e.isMutation) || flow.routes.some((r) => r.hasAction);
 		if (!hasMutation) continue;
-		if (entityHasTests(flow.entity, testIndex)) continue;
+		const relatedTests = relatedTestEvidence(flow.entity, testIndex);
+		const hasTests = relatedTests.length > 0;
 		const risk = scoreRisk({
 			type: "test-gap",
 			isAdmin: flow.isAdmin,
@@ -477,23 +514,24 @@ function buildTestGapSurfaces(
 		surfaces.push({
 			id: `gap:${slug(flow.entity)}`,
 			type: "test-gap",
-			title: `Untested mutating area: ${entityTitle(flow.entity)}`,
+			title: `Unverified mutation coverage: ${entityTitle(flow.entity)}`,
 			entity: flow.entity,
 			files: flow.files,
 			risk: risk.level,
 			riskScore: risk.score,
 			riskReasons: risk.reasons,
 			inferredTests: [
-				makeInferredTest("api", `Add API tests for ${flow.entity} mutations`, false),
-				makeInferredTest("e2e", `Add e2e for ${flow.entity} admin flow`, false),
+				makeInferredTest("api", `Verify API test coverage for ${flow.entity} mutations`, hasTests),
+				makeInferredTest("e2e", `Verify e2e coverage for ${flow.entity} admin flow`, hasTests),
 			],
 			evidence: [
+				...relatedTests,
 				{
 					kind: "note",
-					detail: `${flow.endpoints.length} endpoints, ${flow.forms.length} forms, 0 tests`,
+					detail: `${flow.endpoints.length} endpoints, ${flow.forms.length} forms, ${relatedTests.length} related test files; coverage unverified`,
 				},
 			],
-			gaps: [`Entire ${flow.entity} mutation surface lacks automated coverage`],
+			gaps: [`Automated coverage of ${flow.entity} mutations has not been established`],
 		});
 	}
 	return surfaces;
@@ -521,30 +559,62 @@ export interface BuildOptions {
 	extraSurfaces?: Surface[];
 }
 
+/** Keep service-local entity names and test hints inside their owning stack boundary. */
+function scopedBundles(
+	project: ProjectInfo,
+	bundle: DetectionBundle,
+): Array<{ rootRel: string; bundle: DetectionBundle }> {
+	const roots = [...new Set(project.stacks.map((stack) => stack.rootRel))].sort(
+		(a, b) => b.length - a.length || a.localeCompare(b),
+	);
+	const owner = (file: string): string =>
+		roots.find((root) => root === "" || file.startsWith(`${root}/`)) ?? "";
+	return [...new Set(["", ...roots])].map((rootRel) => {
+		const local = (item: { file: string }): boolean => owner(item.file) === rootRel;
+		return {
+			rootRel,
+			bundle: {
+				routes: bundle.routes.filter(local),
+				endpoints: bundle.endpoints.filter(local),
+				forms: bundle.forms.filter(local),
+				dtos: bundle.dtos.filter(local),
+				cacheSignals: bundle.cacheSignals.filter(local),
+				tests: bundle.tests.filter(local),
+			},
+		};
+	});
+}
+
 export function buildRegistry(
 	repo: RepoFiles,
 	project: ProjectInfo,
 	bundle: DetectionBundle,
 	options: BuildOptions,
 ): { registry: SurfaceRegistry; flows: CrudFlow[] } {
-	const flows = inferCrudFlows({
-		routes: bundle.routes,
-		endpoints: bundle.endpoints,
-		forms: bundle.forms,
-		dtos: bundle.dtos,
-		cacheSignals: bundle.cacheSignals,
-	});
-	const testIndex = buildTestIndex(bundle);
-
-	const surfaces: Surface[] = [
-		...buildCrudSurfaces(flows, testIndex),
-		...buildEndpointSurfaces(bundle.endpoints, testIndex),
-		...buildFormSurfaces(bundle.forms, flows, testIndex),
-		...buildCacheRiskSurfaces(flows, bundle.cacheSignals),
-		...buildRouteSurfaces(bundle.routes, flows, testIndex),
-		...buildTestGapSurfaces(flows, testIndex),
-		...(options.extraSurfaces ?? []),
-	];
+	const flows: CrudFlow[] = [];
+	const surfaces: Surface[] = [];
+	for (const { rootRel, bundle: local } of scopedBundles(project, bundle)) {
+		const localFlows = inferCrudFlows(local);
+		flows.push(...localFlows);
+		const testIndex = buildTestIndex(local);
+		const localSurfaces = [
+			...buildCrudSurfaces(localFlows, testIndex),
+			...buildEndpointSurfaces(local.endpoints, testIndex),
+			...buildFormSurfaces(local.forms, localFlows, testIndex),
+			...buildCacheRiskSurfaces(localFlows, local.cacheSignals),
+			...buildRouteSurfaces(local.routes, localFlows, testIndex),
+			...buildTestGapSurfaces(localFlows, testIndex),
+		];
+		for (const surface of localSurfaces) {
+			if (rootRel) {
+				surface.id = `${surface.id}@${encodeURIComponent(rootRel)}`;
+				surface.title = `${surface.title} (${rootRel})`;
+				surface.evidence.push({ kind: "note", detail: `Project scope: ${rootRel}` });
+			}
+			surfaces.push(surface);
+		}
+	}
+	surfaces.push(...(options.extraSurfaces ?? []));
 
 	// Stable ordering: risk desc, then type, then id.
 	const riskRank: Record<Risk, number> = { high: 0, medium: 1, low: 2 };

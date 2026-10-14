@@ -8,6 +8,7 @@
  */
 import type { DetectionBundle } from "../detectors/types.js";
 import type { RepoFiles } from "../scanner/files.js";
+import { nodePackageRoots } from "../scanner/package.js";
 import type { PackageManager, ProjectInfo, StackInfo, Surface } from "../types.js";
 import { csharpAdapter } from "./csharp.js";
 import { genericAdapter } from "./generic.js";
@@ -60,20 +61,43 @@ export interface MultiStackScan {
 /** Detect applicable stacks, scan each, and merge into one project + bundle + surfaces. */
 export function scanStacks(repo: RepoFiles): MultiStackScan {
 	const scans: StackScan[] = [];
+	const deepMatches = DEEP_ADAPTERS.map((adapter) => ({ adapter, matches: adapter.detect(repo) }));
+	const genericMatches = genericAdapter.detect(repo);
+	const roots = new Set([
+		...nodePackageRoots(repo),
+		...deepMatches.flatMap(({ matches }) => matches.map((match) => match.rootRel)),
+		...genericMatches.map((match) => match.rootRel),
+	]);
+	const scopedRepo = (rootRel: string): RepoFiles => {
+		const children = [...roots].filter(
+			(other) => other !== rootRel && (rootRel === "" || other.startsWith(`${rootRel}/`)),
+		);
+		return {
+			...repo,
+			files: repo.files.filter(
+				(f) =>
+					(rootRel === "" || f.path.startsWith(`${rootRel}/`)) &&
+					!children.some((child) => f.path.startsWith(`${child}/`)),
+			),
+		};
+	};
 
 	// 1. Deep adapters claim their locations.
 	const claimed = new Set<string>(); // `${rootRel}` keys claimed by a deep adapter
-	for (const adapter of DEEP_ADAPTERS) {
-		for (const match of adapter.detect(repo)) {
-			scans.push(adapter.scan(repo, match));
+	for (const { adapter, matches } of deepMatches) {
+		for (const match of matches) {
+			const local = scopedRepo(match.rootRel);
+			// A child's framework imports must not make an otherwise generic parent deep.
+			if (!adapter.detect(local).some((candidate) => candidate.rootRel === match.rootRel)) continue;
+			scans.push(adapter.scan(local, match));
 			claimed.add(match.rootRel);
 		}
 	}
 
 	// 2. Generic fallback fills locations no deep adapter claimed.
-	for (const match of genericAdapter.detect(repo)) {
+	for (const match of genericMatches) {
 		if (claimed.has(match.rootRel)) continue;
-		scans.push(genericAdapter.scan(repo, match));
+		scans.push(genericAdapter.scan(scopedRepo(match.rootRel), match));
 	}
 
 	// Drop empty stacks (e.g. an assets-only package.json next to a Phoenix/Django app):

@@ -5,42 +5,51 @@
  *   <command> [targetDir] [--flag] [--key value]
  * The first non-flag positional is the target repo root (defaults to cwd).
  */
-import { resolve } from "node:path";
+import { type ParsedArgs, parseQaArgs, type QaCommand } from "../src/cli-args.js";
 import type { StepResult } from "../src/core.js";
 
-export interface ParsedArgs {
-	root: string;
-	flags: Set<string>;
-	values: Map<string, string>;
-	positionals: string[];
+export type { ParsedArgs } from "../src/cli-args.js";
+
+export function parseArgs(argv: string[], command: QaCommand = "verify"): ParsedArgs {
+	return parseQaArgs(argv, command);
 }
 
-export function parseArgs(argv: string[]): ParsedArgs {
-	const flags = new Set<string>();
-	const values = new Map<string, string>();
-	const positionals: string[] = [];
-	for (let i = 0; i < argv.length; i++) {
-		const arg = argv[i] as string;
-		if (arg.startsWith("--")) {
-			const key = arg.slice(2);
-			const next = argv[i + 1];
-			if (next !== undefined && !next.startsWith("--")) {
-				values.set(key, next);
-				i++;
-			} else {
-				flags.add(key);
-			}
+/** All entrypoints fail before executing a workflow when parsing fails. */
+export async function runCli(
+	run: (signal: AbortSignal) => void | Promise<void>,
+	json = false,
+): Promise<void> {
+	const cancellation = new AbortController();
+	const abort = () => cancellation.abort(new Error("QA command cancelled"));
+	process.once("SIGINT", abort);
+	process.once("SIGTERM", abort);
+	try {
+		await run(cancellation.signal);
+		if (cancellation.signal.aborted) process.exitCode = 130;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (json) {
+			printResult("qa", { ok: false, summary: message, writtenFiles: [], error: message }, true);
 		} else {
-			positionals.push(arg);
+			process.stderr.write(`Error: ${message}\n`);
+			process.exitCode = 1;
 		}
+		if (cancellation.signal.aborted) process.exitCode = 130;
+	} finally {
+		process.removeListener("SIGINT", abort);
+		process.removeListener("SIGTERM", abort);
 	}
-	const root = resolve(values.get("root") ?? positionals[0] ?? process.cwd());
-	return { root, flags, values, positionals };
 }
 
-export function printResult(title: string, result: StepResult): void {
-	const icon = result.ok ? "✅" : "❌";
-	process.stdout.write(`\n${icon} ${title}\n${result.summary}\n`);
+export function printResult(title: string, result: StepResult, json = false): void {
+	if (json) {
+		process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+		process.exitCode = result.ok ? 0 : 1;
+		return;
+	}
+	const icon = result.outcome === "incomplete" ? "⚠️" : result.ok ? "✅" : "❌";
+	const label = result.outcome === "incomplete" ? `${title} (incomplete)` : title;
+	process.stdout.write(`\n${icon} ${label}\n${result.summary}\n`);
 	if (result.writtenFiles.length) {
 		process.stdout.write("\nWrote:\n");
 		for (const f of result.writtenFiles) process.stdout.write(`  - ${f}\n`);

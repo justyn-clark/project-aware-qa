@@ -4,6 +4,29 @@ All notable changes to `@justynclark/project-aware-qa` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and this project adheres
 to [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] — unreleased
+
+### Added
+- A compiled `project-aware-qa` CLI with scan/plan/verify/report commands and structured
+  `--json` output. The published CLI runs with Node 22+ and no TypeScript loader.
+- Source/registry fingerprints, structured verification records, evidence digests, and
+  separate `.qa/runs/<id>/` artifacts for every verification run.
+- CI configuration for Node 22/24/26 on Linux and Node 24 on macOS, including a packed CLI smoke test.
+
+### Fixed
+- Node monorepo checks retain their package directories and package managers. Parent
+  adapters exclude nested projects; services sharing routes keep separate surface IDs.
+- Related test files now mean unknown coverage, and no longer lower risk or claim
+  successful happy-path/validation coverage. Cache links remain unproven until verified.
+- A successful desktop screenshot cannot hide a failed mobile capture.
+- Owned dev servers start before probes and are stopped after completion or cancellation.
+  Timeouts and cancellation clean up descendant processes.
+- Reports preserve inconclusive results and reject stale, missing, or changed evidence.
+- CLI/Pi flags share strict parsing, including quoted scopes, boolean flags before target
+  paths, positive numeric options, and errors before any work on invalid arguments.
+- Plan and verification scopes consistently select risk, surface type, entity, and route.
+- HTML templates reach Python form detection; runtime tool metadata uses the package version.
+
 ## [0.2.2] — unreleased
 
 ### Fixed
@@ -55,6 +78,7 @@ First published release.
   trailing-slash variant rescue), and rendered-DOM screenshot validation — every claim backed
   by a command log or a skip reason.
 
-[0.2.2]: https://github.com/justyn-clark/project-aware-qa/compare/v0.2.1...HEAD
+[0.3.0]: https://github.com/justyn-clark/project-aware-qa/compare/b7507f6...HEAD
+[0.2.2]: https://github.com/justyn-clark/project-aware-qa/compare/v0.2.1...b7507f6
 [0.2.1]: https://github.com/justyn-clark/project-aware-qa/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/justyn-clark/project-aware-qa/releases/tag/v0.2.0

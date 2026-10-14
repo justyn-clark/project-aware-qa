@@ -63,7 +63,7 @@ export function scoreRisk(input: RiskInput): RiskResult {
 	if (input.isAdmin) add(20, "admin surface (privileged data)");
 	if (input.isMutation) add(15, "mutating operation");
 	if (input.hasForm) add(10, "user-editable form");
-	if (input.staleRisk) add(25, "mutation without detected cache invalidation");
+	if (input.staleRisk) add(25, "mutation without proven cache invalidation");
 	if (input.fieldMismatch) add(12, "form/DTO field mismatch");
 	if (input.usesStorage) add(8, "depends on browser storage");
 	if (input.authGated) add(10, "auth-gated (needs credentials to verify)");

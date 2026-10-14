@@ -12,6 +12,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 test("packed release contains loadable skills and all four QA commands", async () => {
 	const temp = mkdtempSync(join(tmpdir(), "qa-release-"));
 	try {
+		execFileSync("npm", ["run", "build"], { cwd: root, encoding: "utf8" });
 		const output = execFileSync(
 			"npm",
 			[
@@ -51,6 +52,18 @@ test("packed release contains loadable skills and all four QA commands", async (
 			module.default({ registerCommand: (name: string) => commands.push(name) });
 		}
 		assert.deepEqual(commands.sort(), ["qa-plan", "qa-report", "qa-scan", "qa-verify"]);
+		// The published CLI must work with plain Node, without tsx or installed dev dependencies.
+		const executable = join(packed, manifest.bin["project-aware-qa"]);
+		assert.equal(
+			execFileSync(process.execPath, [executable, "--version"], { encoding: "utf8" }).trim(),
+			manifest.version,
+		);
+		const scanned = JSON.parse(
+			execFileSync(process.execPath, [executable, "scan", packed, "--json"], { encoding: "utf8" }),
+		);
+		assert.equal(scanned.ok, true);
+		assert.equal(scanned.scan.registry.tool.version, manifest.version);
+		assert.ok(scanned.scan.registry.provenance.inputHash);
 	} finally {
 		rmSync(temp, { recursive: true, force: true });
 	}

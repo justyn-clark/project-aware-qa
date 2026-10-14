@@ -10,21 +10,15 @@
  * Brakes: --install, --tests and --screenshots are off by default. Without them the
  * verifier records those checks as skipped with a reason rather than executing them.
  */
+import { verifyFlags, wantsJson } from "../src/cli-args.js";
 import { runVerify } from "../src/core.js";
-import { parseArgs, printResult } from "./lib.js";
+import { parseArgs, printResult, runCli } from "./lib.js";
 
-const args = parseArgs(process.argv.slice(2));
-const scope = args.values.get("scope") ?? args.positionals[1];
-
-const result = await runVerify({
-	root: args.root,
-	scope,
-	runInstall: args.flags.has("install"),
-	runTests: args.flags.has("tests"),
-	runScreenshots: args.flags.has("screenshots"),
-	startDevServer: args.flags.has("start-dev-server"),
-	baseUrl: args.values.get("base-url"),
-	maxRoutes: args.values.has("max-routes") ? Number(args.values.get("max-routes")) : undefined,
-	timeoutMs: args.values.has("timeout") ? Number(args.values.get("timeout")) : undefined,
-});
-printResult(`qa-verify ${args.root}`, result);
+await runCli(
+	async (signal) => {
+		const args = parseArgs(process.argv.slice(2), "verify");
+		const result = await runVerify({ root: args.root, ...verifyFlags(args), signal });
+		printResult(`qa-verify ${args.root}`, result, args.flags.has("json"));
+	},
+	wantsJson(process.argv.slice(2)),
+);

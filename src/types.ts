@@ -154,6 +154,17 @@ export interface SurfaceRegistry {
 	project: ProjectInfo;
 	surfaces: Surface[];
 	stats: RegistryStats;
+	/** Source snapshot associated with a scan; old registries require a fresh scan. */
+	provenance?: ProjectFingerprint;
+}
+
+export interface ProjectFingerprint {
+	inputHash: string;
+	commit: string | null;
+	files: number;
+	/** False when discovery/read limits prevented a complete input snapshot. */
+	complete: boolean;
+	issues?: string[];
 }
 
 export const SCHEMA_ID = "https://project-aware-qa/schemas/surface-registry.json";

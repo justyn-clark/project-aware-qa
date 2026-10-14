@@ -10,9 +10,12 @@
  *
  * No baseline diffing in v1 — we capture, we don't compare.
  */
+import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
+import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { qaPath } from "../io.js";
+import { matchesScope } from "../scope.js";
 import type { Surface, SurfaceRegistry } from "../types.js";
 
 export interface RouteProbe {
@@ -99,12 +102,7 @@ export function selectVisualRoutes(
 		);
 	}
 	if (options.scope) {
-		const q = options.scope.toLowerCase();
-		pages = pages.filter(
-			(s) =>
-				(s.frontendRoute ?? "").toLowerCase().includes(q) ||
-				(s.entity ?? "").toLowerCase().includes(q),
-		);
+		pages = pages.filter((surface) => matchesScope(surface, options.scope));
 	}
 	// Highest risk first; dedupe by route.
 	const seen = new Set<string>();
@@ -123,16 +121,25 @@ export async function waitForServer(
 	url: string,
 	timeoutMs = 60_000,
 	intervalMs = 1000,
+	signal?: AbortSignal,
 ): Promise<boolean> {
 	const deadline = Date.now() + timeoutMs;
-	while (Date.now() < deadline) {
+	while (Date.now() < deadline && !signal?.aborted) {
 		try {
-			const res = await fetch(url, { method: "GET", signal: AbortSignal.timeout(5000) });
+			const timeout = AbortSignal.timeout(Math.max(1, Math.min(5000, deadline - Date.now())));
+			const res = await fetch(url, {
+				method: "GET",
+				signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+			});
+			await res.body?.cancel();
 			if (res.status > 0) return true;
 		} catch {
 			// not up yet
 		}
-		await new Promise((r) => setTimeout(r, intervalMs));
+		const remaining = deadline - Date.now();
+		if (remaining > 0 && !signal?.aborted) {
+			await new Promise((r) => setTimeout(r, Math.min(intervalMs, remaining)));
+		}
 	}
 	return false;
 }
@@ -141,17 +148,20 @@ export async function probeRoutes(
 	baseUrl: string,
 	routes: string[],
 	timeoutMs = 10_000,
+	signal?: AbortSignal,
 ): Promise<RouteProbe[]> {
 	const probes: RouteProbe[] = [];
 	for (const route of routes) {
+		signal?.throwIfAborted();
 		const url = `${baseUrl}${route.startsWith("/") ? route : `/${route}`}`;
 		const started = Date.now();
 		try {
 			const res = await fetch(url, {
 				method: "GET",
 				redirect: "manual",
-				signal: AbortSignal.timeout(timeoutMs),
+				signal: requestSignal(timeoutMs, signal),
 			});
+			await res.body?.cancel();
 			probes.push({
 				route,
 				url,
@@ -162,6 +172,7 @@ export async function probeRoutes(
 				durationMs: Date.now() - started,
 			});
 		} catch (e) {
+			signal?.throwIfAborted();
 			probes.push({
 				route,
 				url,
@@ -205,16 +216,20 @@ export const BOGUS_PATH = "/__qa-probe-nonexistent-7f3a__/__definitely-not-a-rou
 export async function calibrateServer(
 	baseUrl: string,
 	timeoutMs = 10_000,
+	signal?: AbortSignal,
 ): Promise<ServerCalibration> {
 	const get = async (path: string): Promise<number | null> => {
+		signal?.throwIfAborted();
 		try {
 			const res = await fetch(`${baseUrl}${path}`, {
 				method: "GET",
 				redirect: "manual",
-				signal: AbortSignal.timeout(timeoutMs),
+				signal: requestSignal(timeoutMs, signal),
 			});
+			await res.body?.cancel();
 			return res.status;
 		} catch {
+			signal?.throwIfAborted();
 			return null;
 		}
 	};
@@ -256,18 +271,21 @@ export async function calibrateServer(
 export async function reprobeBrokenVariants(
 	baseUrl: string,
 	probes: RouteProbe[],
-	options: { basename?: string; timeoutMs?: number } = {},
+	options: { basename?: string; timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<RouteProbe[]> {
 	const timeoutMs = options.timeoutMs ?? 10_000;
 	const tryGet = async (path: string): Promise<number | null> => {
+		options.signal?.throwIfAborted();
 		try {
 			const res = await fetch(`${baseUrl}${path.startsWith("/") ? path : `/${path}`}`, {
 				method: "GET",
 				redirect: "manual",
-				signal: AbortSignal.timeout(timeoutMs),
+				signal: requestSignal(timeoutMs, options.signal),
 			});
+			await res.body?.cancel();
 			return res.status;
 		} catch {
+			options.signal?.throwIfAborted();
 			return null;
 		}
 	};
@@ -386,6 +404,9 @@ async function resolveChromium(targetRoot: string): Promise<unknown | null> {
 
 export interface ScreenshotRunInput {
 	root: string;
+	/** Directory relative to .qa, preserving the actual repository root for resolution. */
+	artifactPrefix?: string;
+	signal?: AbortSignal;
 	baseUrl: string;
 	routes: string[];
 	viewports?: Viewport[];
@@ -399,6 +420,7 @@ export interface ScreenshotRunOutput {
 }
 
 export async function captureScreenshots(input: ScreenshotRunInput): Promise<ScreenshotRunOutput> {
+	input.signal?.throwIfAborted();
 	const viewports = input.viewports ?? DEFAULT_VIEWPORTS;
 	const chromium = (await resolveChromium(input.root)) as {
 		launch: (o?: unknown) => Promise<unknown>;
@@ -412,14 +434,46 @@ export async function captureScreenshots(input: ScreenshotRunInput): Promise<Scr
 		};
 	}
 	const results: ScreenshotResult[] = [];
+	const launchOptions = { headless: true, timeout: input.timeoutMs ?? 20_000 };
 	// biome-ignore lint/suspicious/noExplicitAny: Playwright is resolved dynamically at runtime without its types.
-	const browser = (await chromium.launch({ headless: true })) as any;
+	let browser: any;
 	try {
+		browser = await chromium.launch(launchOptions);
+	} catch (error) {
+		input.signal?.throwIfAborted();
+		return {
+			available: true,
+			results: input.routes.flatMap((route) =>
+				viewports.map((viewport) => ({
+					route,
+					viewport: viewport.name,
+					ok: false,
+					error: `Browser launch failed: ${error instanceof Error ? error.message : String(error)}`,
+				})),
+			),
+		};
+	}
+	const onAbort = () => {
+		void browser.close().catch(() => {});
+	};
+	input.signal?.addEventListener("abort", onAbort, { once: true });
+	try {
+		input.signal?.throwIfAborted();
 		for (const route of input.routes) {
 			for (const vp of viewports) {
-				const file = qaPath(input.root, "screenshots", `${slug(route)}-${vp.name}.png`);
+				input.signal?.throwIfAborted();
+				const file = qaPath(
+					input.root,
+					input.artifactPrefix ?? "",
+					"screenshots",
+					`${slug(route)}-${vp.name}.png`,
+				);
+				mkdirSync(dirname(file), { recursive: true });
+				// biome-ignore lint/suspicious/noExplicitAny: Playwright is resolved dynamically.
+				let page: any;
 				try {
-					const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height } });
+					page = await browser.newPage({ viewport: { width: vp.width, height: vp.height } });
+					page.setDefaultTimeout(input.timeoutMs ?? 20_000);
 					let consoleErrors = 0;
 					// biome-ignore lint/suspicious/noExplicitAny: Playwright page event payloads are untyped here.
 					page.on("console", (msg: any) => {
@@ -443,7 +497,6 @@ export async function captureScreenshots(input: ScreenshotRunInput): Promise<Scr
 						.evaluate("((document.body && document.body.innerText) || '').slice(0, 4000)")
 						.catch(() => "");
 					const looksLikeNotFound = NOT_FOUND_RE.test(`${title}\n${bodyText}`);
-					await page.close();
 					results.push({
 						route,
 						viewport: vp.name,
@@ -455,19 +508,29 @@ export async function captureScreenshots(input: ScreenshotRunInput): Promise<Scr
 						looksLikeNotFound,
 					});
 				} catch (e) {
+					input.signal?.throwIfAborted();
 					results.push({
 						route,
 						viewport: vp.name,
 						ok: false,
 						error: e instanceof Error ? e.message : String(e),
 					});
+				} finally {
+					await page?.close().catch(() => {});
 				}
 			}
 		}
 	} finally {
+		input.signal?.removeEventListener("abort", onAbort);
 		await browser.close();
 	}
+	input.signal?.throwIfAborted();
 	return { available: true, results };
+}
+
+function requestSignal(timeoutMs: number, signal?: AbortSignal): AbortSignal {
+	const timeout = AbortSignal.timeout(timeoutMs);
+	return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
 /** Heuristic markers of a not-found / error-boundary page in title or body text. */
@@ -484,7 +547,7 @@ export interface ScreenshotSummary {
  * Verdict over screenshot results using the rendered DOM — the authoritative route check
  * for SPA/catch-all servers where HTTP status is meaningless. One verdict per route
  * (collapsing viewports): a route is broken if any viewport rendered a not-found/error
- * page or returned a 4xx/5xx navigation status.
+ * page, returned a 4xx/5xx navigation status, or failed to finish capture.
  */
 export function summarizeScreenshots(results: ScreenshotResult[]): ScreenshotSummary {
 	if (results.length === 0) {
@@ -502,18 +565,17 @@ export function summarizeScreenshots(results: ScreenshotResult[]): ScreenshotSum
 	const consoleErrRoutes: string[] = [];
 	const brokenRoutes: string[] = [];
 	for (const [route, shots] of byRoute) {
-		const captured = shots.some((s) => s.file);
 		const notFound = shots.some(
 			(s) => s.looksLikeNotFound || (typeof s.httpStatus === "number" && s.httpStatus >= 400),
 		);
-		const errored = shots.every((s) => !s.file);
+		const errored = shots.some((s) => !s.ok || !s.file || s.error);
 		if (notFound) {
 			notFoundRoutes++;
 			brokenRoutes.push(route);
 		} else if (errored) {
 			erroredRoutes++;
 			brokenRoutes.push(route);
-		} else if (captured) {
+		} else {
 			okRoutes++;
 		}
 		if (shots.some((s) => (s.consoleErrors ?? 0) > 0)) consoleErrRoutes.push(route);
@@ -527,11 +589,11 @@ export function summarizeScreenshots(results: ScreenshotResult[]): ScreenshotSum
 		const detail = brokenRoutes.slice(0, 4).join(", ");
 		return {
 			status: "failed",
-			summary: `${okRoutes}/${total} rendered OK · ${notFoundRoutes} not-found/error page(s) · ${erroredRoutes} failed to load (${detail}${brokenRoutes.length > 4 ? ", …" : ""})${consoleNote}. ${savedShots} screenshots in .qa/screenshots/`,
+			summary: `${okRoutes}/${total} rendered OK · ${notFoundRoutes} not-found/error page(s) · ${erroredRoutes} route(s) with failed viewport capture (${detail}${brokenRoutes.length > 4 ? ", …" : ""})${consoleNote}. ${savedShots} screenshots saved`,
 		};
 	}
 	return {
 		status: "passed",
-		summary: `${okRoutes}/${total} routes rendered OK${consoleNote}. ${savedShots} screenshots in .qa/screenshots/`,
+		summary: `${okRoutes}/${total} routes rendered OK in every requested viewport${consoleNote}. ${savedShots} screenshots saved`,
 	};
 }

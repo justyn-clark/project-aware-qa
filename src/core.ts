@@ -6,7 +6,8 @@
  * notification. Keeping this in one place means the scripts and the extension stay in
  * lockstep.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import {
 	ensureQaDirs,
 	qaPath,
@@ -15,6 +16,12 @@ import {
 	writeArtifact,
 	writeJsonArtifact,
 } from "./io.js";
+import {
+	fingerprintProject,
+	registryFingerprint,
+	sameFingerprint,
+	validateProjectRoot,
+} from "./provenance.js";
 import { validateRegistry } from "./registry/schema.js";
 import {
 	renderCrudMatrix,
@@ -25,10 +32,18 @@ import {
 import { renderQaReport } from "./report/summary.js";
 import { renderVerificationReport } from "./report/verification.js";
 import { type ScanResult, scanRepo } from "./scanner/index.js";
+import { matchesScope } from "./scope.js";
+import {
+	captureEvidenceManifest,
+	readVerificationSummary,
+	type VerificationRecord,
+} from "./verification-record.js";
 import { runVerification, type VerifyOptions, type VerifyResult } from "./verify/index.js";
+import { TOOL } from "./version.js";
 
 export interface StepResult {
 	ok: boolean;
+	outcome?: "passed" | "failed" | "incomplete";
 	summary: string;
 	writtenFiles: string[];
 	error?: string;
@@ -46,7 +61,15 @@ export function runScan(
 ): ScanStepResult {
 	const written: string[] = [];
 	try {
+		const invalidRoot = validateProjectRoot(root);
+		if (invalidRoot) throw new Error(invalidRoot);
+		const before = fingerprintProject(root);
 		const scan = scanRepo(root, options);
+		const after = fingerprintProject(root);
+		scan.registry.provenance = {
+			...after,
+			complete: sameFingerprint(before, after) && !scan.repo.truncated,
+		};
 		const { valid, errors } = validateRegistry(scan.registry);
 		ensureQaDirs(root);
 		written.push(writeJsonArtifact(root, "surface-registry.json", scan.registry));
@@ -60,9 +83,13 @@ export function runScan(
 		const summary =
 			`Scanned ${scan.registry.stats.scannedFiles} files · ${scan.registry.surfaces.length} surfaces ` +
 			`(${high} high / ${medium} medium / ${low} low) · ${scan.flows.length} CRUD flows. ` +
-			`Registry ${valid ? "valid ✅" : `INVALID ❌ (${errors.length} errors)`}.`;
+			`Registry ${valid ? "valid ✅" : `INVALID ❌ (${errors.length} errors)`}.` +
+			(scan.registry.provenance.complete
+				? ""
+				: ` Source snapshot incomplete: ${after.issues?.join("; ") || "inputs changed or discovery was truncated"}.`);
 		return {
-			ok: true,
+			ok: valid,
+			outcome: valid ? (scan.registry.provenance.complete ? "passed" : "incomplete") : "failed",
 			summary,
 			writtenFiles: written,
 			scan,
@@ -93,13 +120,9 @@ export function runPlan(root: string, options: { scope?: string } = {}): StepRes
 	ensureQaDirs(root);
 	const md = renderTestPlan(registry, { scope: options.scope });
 	const file = writeArtifact(root, "test-plan.md", md);
-	const scope = options.scope?.toLowerCase();
-	const inScope = scope
-		? registry.surfaces.filter(
-				(s) =>
-					s.title.toLowerCase().includes(scope) || (s.entity ?? "").toLowerCase().includes(scope),
-			).length
-		: registry.surfaces.length;
+	const inScope = registry.surfaces.filter((surface) =>
+		matchesScope(surface, options.scope),
+	).length;
 	return {
 		ok: true,
 		summary: `Test plan written for ${options.scope ? `scope "${options.scope}" (~${inScope} surfaces)` : `${registry.surfaces.length} surfaces`}.`,
@@ -124,8 +147,53 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyStepResul
 	}
 	try {
 		ensureQaDirs(root);
-		const verify = await runVerification(options);
-		const file = writeArtifact(root, "verification-report.md", renderVerificationReport(verify));
+		const registry = readRegistry(root);
+		const before = fingerprintProject(root);
+		if (!registry?.provenance || !sameFingerprint(registry.provenance, before)) {
+			return {
+				ok: false,
+				outcome: "incomplete",
+				summary: `Registry is stale, incomplete, or lacks source provenance. Run /qa-scan before verifying.${before.issues?.length ? ` ${before.issues.join("; ")}` : ""}`,
+				writtenFiles: [],
+			};
+		}
+		const runId = randomUUID();
+		const prefix = `runs/${runId}`;
+		const verify = await runVerification({ ...options, artifactPrefix: prefix });
+		const after = fingerprintProject(root);
+		if (!sameFingerprint(before, after)) {
+			verify.checks.push({
+				id: "source-stability",
+				title: "Source remained unchanged during verification",
+				status: "inconclusive",
+				reason: "Source changed during verification. Scan and verify the new snapshot again.",
+			});
+		}
+		const evidence = captureEvidenceManifest(root, verify);
+		if (evidence.issues.length) {
+			verify.checks.push({
+				id: "evidence-integrity",
+				title: "Verification evidence remains available and readable",
+				status: "inconclusive",
+				reason: `${evidence.issues.join("; ")} Run verification again to regenerate the evidence.`,
+			});
+		}
+		const record: VerificationRecord = {
+			version: 1,
+			runId,
+			tool: TOOL,
+			scope: options.scope ?? null,
+			registryHash: registryFingerprint(registry),
+			sourceBefore: before,
+			sourceAfter: after,
+			result: verify,
+			evidence,
+		};
+		const json = writeJsonArtifact(root, `${prefix}/verification.json`, record);
+		writeJsonArtifact(root, "verification.json", record);
+		const report = renderVerificationReport(verify);
+		const archived = writeArtifact(root, `${prefix}/verification-report.md`, report);
+		const file = writeArtifact(root, "verification-report.md", report);
 		const passed = verify.checks.filter((c) => c.status === "passed").length;
 		const failed = verify.checks.filter((c) => c.status === "failed").length;
 		const skipped = verify.checks.filter((c) => c.status === "skipped").length;
@@ -133,8 +201,9 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyStepResul
 		const incBit = inconclusive ? ` · ${inconclusive} inconclusive` : "";
 		return {
 			ok: failed === 0,
-			summary: `Verification: ${passed} passed · ${failed} failed · ${skipped} skipped${incBit}. Evidence in .qa/findings/.`,
-			writtenFiles: [file],
+			outcome: failed ? "failed" : skipped || inconclusive ? "incomplete" : "passed",
+			summary: `Verification: ${passed} passed · ${failed} failed · ${skipped} skipped${incBit}. Evidence in .qa/${prefix}/.`,
+			writtenFiles: [file, qaPath(root, "verification.json"), archived, json],
 			verify,
 		};
 	} catch (e) {
@@ -145,27 +214,6 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyStepResul
 			error: e instanceof Error ? `${e.message}\n${e.stack ?? ""}` : String(e),
 		};
 	}
-}
-
-function countVerification(
-	root: string,
-): { passed: number; failed: number; skipped: number } | undefined {
-	// Prefer the structured findings; fall back to undefined when not present.
-	const probe = qaPath(root, "findings", "route-probe.json");
-	const report = qaPath(root, "verification-report.md");
-	if (!existsSync(report) && !existsSync(probe)) return undefined;
-	// We re-derive a coarse count from the verification report's header line when present.
-	try {
-		if (!existsSync(report)) return undefined;
-		const text = readFileSync(report, "utf8");
-		const m = /\*\*(\d+) passed · (\d+) failed · (\d+) skipped(?: · \d+ inconclusive)?\*\*/.exec(
-			text,
-		);
-		if (m) return { passed: Number(m[1]), failed: Number(m[2]), skipped: Number(m[3]) };
-	} catch {
-		/* ignore */
-	}
-	return undefined;
 }
 
 /** Phase 9: aggregate everything into qa-report.md. */
@@ -189,7 +237,7 @@ export function runReport(root: string): StepResult {
 			testPlan: existsSync(qaPath(root, "test-plan.md")),
 			verificationReport: existsSync(qaPath(root, "verification-report.md")),
 		},
-		verification: countVerification(root),
+		verification: readVerificationSummary(root, registry),
 	});
 	const file = writeArtifact(root, "qa-report.md", md);
 	const { high, medium } = registry.stats.byRisk;

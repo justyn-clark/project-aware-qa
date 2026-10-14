@@ -17,6 +17,9 @@ specific ecosystems, and a generic adapter gives every other language a useful b
 A monorepo (e.g. a Remix frontend + a Phoenix backend) is detected as multiple stacks and
 verified per-stack.
 
+This branch contains the **0.3 development preview**. The separate 0.2.2 maintenance
+package fixes skill loading; the reliability and CLI improvements below are unreleased.
+
 ### Stacks
 
 | Adapter | Coverage |
@@ -52,8 +55,10 @@ After installing, `/reload` in Pi and the four commands appear.
 
 ### Developing on the pack
 
+Use Node 22 or newer.
+
 ```bash
-npm install
+npm ci
 npm run check   # strict typecheck
 npm run lint    # biome
 npm test        # node:test suite
@@ -66,14 +71,28 @@ pi -e extensions/qa.ts   # load the local extension for a session
 | --- | --- |
 | `/qa-scan` | `.qa/surface-registry.json`, `scan-report.md`, `crud-matrix.md`, `risk-report.md` |
 | `/qa-plan [scope]` | `.qa/test-plan.md` |
-| `/qa-verify [scope] [flags]` | `.qa/verification-report.md`, `.qa/findings/*`, `.qa/screenshots/*` |
+| `/qa-verify [scope] [flags]` | `.qa/verification.json`, `verification-report.md`, `.qa/runs/<id>/*` |
 | `/qa-report` | `.qa/qa-report.md` |
 
 `/qa-verify` flags (all **off by default** — they're brakes):
 `--install`, `--tests`, `--screenshots`, `--start-dev-server`, `--base-url <url>`,
 `--max-routes <n>`, `--timeout <ms>`.
 
-### As standalone scripts
+### Standalone CLI and CI
+
+The development package includes a compiled CLI. Build it from this checkout:
+
+```bash
+npm run build
+node dist/src/cli.js scan /path/to/repo --json
+node dist/src/cli.js plan /path/to/repo --scope admin
+node dist/src/cli.js verify /path/to/repo --tests --json
+node dist/src/cli.js report /path/to/repo
+```
+
+`npm pack` builds the executable before packing. Installing that tarball exposes
+`project-aware-qa` with the same commands, without requiring Pi or `tsx`.
+The TypeScript wrapper scripts remain available during development:
 
 ```bash
 tsx scripts/scan.ts   /path/to/repo
@@ -82,14 +101,40 @@ tsx scripts/verify.ts /path/to/repo --screenshots --base-url http://localhost:51
 tsx scripts/report.ts /path/to/repo
 ```
 
+Arguments are shared between Pi and the CLI. Unknown options, missing values, conflicting
+arguments, and nonpositive numeric limits fail before running a workflow. Quote paths and
+scopes containing spaces. `--json` is available on CLI commands only.
+
+Use the tool as an **advisory CI check**. Exit 0 means the command completed without failed
+checks; skipped and inconclusive checks can still exist. Inspect `outcome` and the structured
+verification record before enforcing a team policy. Exit 1 indicates failure; cancellation
+exits 130. Required-check policies, PR change selection, and JUnit/SARIF export remain future work.
+
+### Evidence freshness
+
+Scanning records a Git commit (when available) and content fingerprint. Verification
+requires that snapshot to match current inputs. Edits require another scan; changes during
+verification make the run inconclusive. Legacy registries need a new scan.
+
+Each run stores logs, probes, screenshots, a report, and `verification.json` under
+`.qa/runs/<id>/`. The top-level `.qa/verification.json` points to the latest run through its
+run ID and contains the full structured results. Aggregated reports check source and registry
+fingerprints and evidence digests before displaying current counts. Deleted/changed artifacts
+are unverified; old source evidence is stale. All four check statuses remain visible.
+
+Package boundaries isolate inference and check execution. A matching test filename is
+evidence of a related test, with coverage **unknown** until established. Static cache signals
+likewise do not establish that a particular mutation executes an invalidation. Cross-package
+relationships require explicit verification.
+
 ## The repair loop
 
 ```
-scan → plan → verify → fix → verify → report
+scan → plan → verify → fix → scan → verify → report
 ```
 
-Nothing is "done" without evidence. Every verification check links its command log under
-`.qa/findings/`, and every failing check becomes a repair-loop finding carrying:
+Nothing is "done" without evidence. Executed checks link their logs under
+`.qa/runs/<id>/findings/`, and every failing check becomes a repair-loop finding carrying:
 **issue · evidence · suspected cause · fix status · rerun evidence · remaining gap.**
 Skipped checks are never counted as passing — they record *why* they were skipped.
 
@@ -166,3 +211,7 @@ Validated against `templates/surface-registry.schema.json`.
 - Auth-gated admin routes need credentials/config to verify at runtime.
 - Visual QA captures, it does **not** diff against baselines.
 - Cache-invalidation inference is best-effort and can produce false positives/negatives.
+- Fingerprints exclude installed dependencies and operational/generated output directories;
+  they establish a source snapshot, not reproducibility of external services or databases.
+- Process-tree cleanup has local POSIX regression coverage; Windows behavior and real browser
+  integration require separate validation. The CI matrix is configuration until run on GitHub.

@@ -5,8 +5,8 @@
  * helpers for reading files and grepping for patterns with line numbers. Detectors
  * are built on top of these primitives.
  */
-import { type Dirent, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { type Dirent, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { isAbsolute, join, relative, sep } from "node:path";
 
 const DEFAULT_IGNORES = new Set([
 	"node_modules",
@@ -51,6 +51,7 @@ const CODE_EXTENSIONS = new Set([
 	".vue",
 	".svelte",
 	".astro",
+	".html",
 	// Elixir / Phoenix
 	".ex",
 	".exs",
@@ -159,7 +160,10 @@ export interface RepoFiles {
 	files: FileEntry[];
 	/** Count of files seen on disk before the maxFiles cap. */
 	totalSeen: boolean;
+	/** Discovery was capped or an input could not be inspected safely. */
 	truncated: boolean;
+	/** Bounded diagnostics explaining incomplete discovery; never includes file contents. */
+	issues?: string[];
 }
 
 /** Normalize a path to forward slashes for stable, cross-platform reporting. */
@@ -175,16 +179,52 @@ export function walkRepo(root: string, options: ScanFsOptions = {}): RepoFiles {
 
 	const files: FileEntry[] = [];
 	let truncated = false;
+	const issues: string[] = [];
+	const note = (message: string) => {
+		truncated = true;
+		if (issues.length < 20 && !issues.includes(message)) issues.push(message);
+	};
+	let canonicalRoot: string;
+	try {
+		canonicalRoot = realpathSync(root);
+	} catch {
+		return {
+			root,
+			files,
+			totalSeen: false,
+			truncated: true,
+			issues: ["Cannot resolve scan root"],
+		};
+	}
+	const inside = (path: string): boolean => {
+		const rel = relative(canonicalRoot, path);
+		return rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+	};
+	const display = (path: string): string => toPosix(relative(root, path)) || ".";
 
-	const stack: string[] = [root];
+	const stack: Array<{ dir: string; ancestors: Set<string> }> = [
+		{ dir: root, ancestors: new Set() },
+	];
 	while (stack.length > 0) {
-		const dir = stack.pop() as string;
+		const { dir, ancestors } = stack.pop() as (typeof stack)[number];
 		let entries: Dirent<string>[];
+		let actual: string;
 		try {
+			actual = realpathSync(dir);
+			if (!inside(actual)) {
+				note(`Directory symlink leaves the project root: ${display(dir)}`);
+				continue;
+			}
+			if (ancestors.has(actual)) {
+				note(`Directory symlink cycle skipped: ${display(dir)}`);
+				continue;
+			}
 			entries = readdirSync(dir, { withFileTypes: true });
 		} catch {
+			note(`Cannot read input directory: ${display(dir)}`);
 			continue;
 		}
+		const childAncestors = new Set([...ancestors, actual]);
 		for (const entry of entries) {
 			if (entry.name.startsWith(".") && entry.name !== ".env") {
 				// Skip dotfiles/dirs except a few we care about; .env handled elsewhere.
@@ -194,17 +234,23 @@ export function walkRepo(root: string, options: ScanFsOptions = {}): RepoFiles {
 			let isDir = entry.isDirectory();
 			let isFile = entry.isFile();
 			if (entry.isSymbolicLink()) {
+				if (ignore.has(entry.name)) continue;
 				try {
+					if (!inside(realpathSync(abs))) {
+						note(`Input symlink leaves the project root: ${display(abs)}`);
+						continue;
+					}
 					const st = statSync(abs);
 					isDir = st.isDirectory();
 					isFile = st.isFile();
 				} catch {
+					note(`Cannot inspect input symlink: ${display(abs)}`);
 					continue;
 				}
 			}
 			if (isDir) {
-				if (ignore.has(entry.name)) continue;
-				stack.push(abs);
+				if (ignore.has(entry.name) || entry.name.startsWith(".")) continue;
+				stack.push({ dir: abs, ancestors: childAncestors });
 				continue;
 			}
 			if (!isFile) continue;
@@ -214,11 +260,12 @@ export function walkRepo(root: string, options: ScanFsOptions = {}): RepoFiles {
 			try {
 				size = statSync(abs).size;
 			} catch {
+				note(`Cannot inspect input file: ${display(abs)}`);
 				continue;
 			}
 			files.push({ path: toPosix(relative(root, abs)), abs, ext, size });
 			if (files.length >= maxFiles) {
-				truncated = true;
+				note(`Discovery reached ${maxFiles} files; increase maxFiles or reduce the project scope`);
 				stack.length = 0;
 				break;
 			}
@@ -226,7 +273,7 @@ export function walkRepo(root: string, options: ScanFsOptions = {}): RepoFiles {
 	}
 
 	files.sort((a, b) => a.path.localeCompare(b.path));
-	return { root, files, totalSeen: true, truncated };
+	return { root, files, totalSeen: true, truncated, ...(issues.length ? { issues } : {}) };
 }
 
 function isInterestingNonCode(name: string): boolean {

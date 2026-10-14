@@ -11,14 +11,14 @@ import { detectControllers, detectDtos } from "../detectors/nestjs.js";
 import { detectRoutes } from "../detectors/react-router.js";
 import { detectTests } from "../detectors/tests.js";
 import type { RepoFiles } from "../scanner/files.js";
-import { scanPackages } from "../scanner/package.js";
+import { nodePackageRoots, scanPackages, scopeNodePackage } from "../scanner/package.js";
 import type { CheckCommand, PackageManager, StackChecks, StackInfo } from "../types.js";
 import { packageManagerRun } from "../verify/commands.js";
 import type { StackAdapter, StackMatch, StackScan } from "./types.js";
 
-function checkCommand(pm: PackageManager, script: string): CheckCommand {
+function checkCommand(pm: PackageManager, script: string, cwd: string): CheckCommand {
 	const { command, args } = packageManagerRun(pm, script);
-	return { command: `${command} ${args.join(" ")}`.trim(), cwd: "" };
+	return { command: `${command} ${args.join(" ")}`.trim(), cwd };
 }
 
 export const nodeAdapter: StackAdapter = {
@@ -29,32 +29,30 @@ export const nodeAdapter: StackAdapter = {
 	markers: ["package.json"],
 
 	detect(repo: RepoFiles): StackMatch[] {
-		const hasPkg = repo.files.some(
-			(f) => f.path === "package.json" || f.path.endsWith("/package.json"),
-		);
-		if (!hasPkg) return [];
 		// Only anchor a Node stack when there's a real project signal (a framework or a
 		// runnable check script). An assets/tooling-only package.json — e.g. tailwind/esbuild
 		// next to a Phoenix or Django app — shouldn't create a "Node (unknown)" stack.
-		const tc = scanPackages(repo);
-		if (tc.frameworks.length === 0 && Object.keys(tc.checkScripts).length === 0) return [];
-		// The node toolchain merges all package.json files (monorepo-aware), so one match.
-		return [{ adapter: "node", rootRel: "", label: "Node", confidence: 80 }];
+		return nodePackageRoots(repo).flatMap((rootRel) => {
+			const tc = scanPackages(repo, rootRel);
+			if (tc.frameworks.length === 0 && Object.keys(tc.checkScripts).length === 0) return [];
+			return [{ adapter: "node", rootRel, label: "Node", confidence: 80 }];
+		});
 	},
 
-	scan(repo: RepoFiles, _match: StackMatch): StackScan {
-		const tc = scanPackages(repo);
+	scan(repo: RepoFiles, match: StackMatch): StackScan {
+		const tc = scanPackages(repo, match.rootRel);
+		const scopedRepo = scopeNodePackage(repo, match.rootRel);
 		const checks: StackChecks = {};
 		for (const kind of ["typecheck", "lint", "test", "build", "dev"] as const) {
 			const script = tc.checkScripts[kind];
-			if (script) checks[kind] = checkCommand(tc.packageManager, script);
+			if (script) checks[kind] = checkCommand(tc.packageManager, script, match.rootRel);
 		}
-		const usesTs = repo.files.some((f) => f.path.endsWith(".ts") || f.path.endsWith(".tsx"));
+		const usesTs = scopedRepo.files.some((f) => f.path.endsWith(".ts") || f.path.endsWith(".tsx"));
 		const stack: StackInfo = {
 			adapter: "node",
-			label: `Node (${tc.packageManager})`,
+			label: `Node (${tc.packageManager})${match.rootRel ? ` — ${match.rootRel}` : ""}`,
 			language: usesTs ? "typescript" : "javascript",
-			rootRel: "",
+			rootRel: match.rootRel,
 			packageManager: tc.packageManager,
 			frameworks: tc.frameworks,
 			scripts: tc.scripts,
@@ -63,12 +61,12 @@ export const nodeAdapter: StackAdapter = {
 			depth: "deep",
 		};
 		const bundle = {
-			routes: detectRoutes(repo, tc.frameworks),
-			endpoints: detectControllers(repo),
-			dtos: detectDtos(repo),
-			forms: detectForms(repo),
-			cacheSignals: detectCacheSignals(repo),
-			tests: detectTests(repo),
+			routes: detectRoutes(scopedRepo, tc.frameworks),
+			endpoints: detectControllers(scopedRepo),
+			dtos: detectDtos(scopedRepo),
+			forms: detectForms(scopedRepo),
+			cacheSignals: detectCacheSignals(scopedRepo),
+			tests: detectTests(scopedRepo),
 		};
 		return { stack, bundle, extraSurfaces: [] };
 	},

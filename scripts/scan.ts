@@ -4,10 +4,15 @@
  *
  * Usage: tsx scripts/scan.ts [targetDir] [--max-files N]
  */
+import { wantsJson } from "../src/cli-args.js";
 import { runScan } from "../src/core.js";
-import { parseArgs, printResult } from "./lib.js";
+import { parseArgs, printResult, runCli } from "./lib.js";
 
-const args = parseArgs(process.argv.slice(2));
-const maxFiles = args.values.has("max-files") ? Number(args.values.get("max-files")) : undefined;
-const result = runScan(args.root, { maxFiles });
-printResult(`qa-scan ${args.root}`, result);
+await runCli(
+	async () => {
+		const args = parseArgs(process.argv.slice(2), "scan");
+		const result = runScan(args.root, { maxFiles: args.maxFiles });
+		printResult(`qa-scan ${args.root}`, result, args.flags.has("json"));
+	},
+	wantsJson(process.argv.slice(2)),
+);

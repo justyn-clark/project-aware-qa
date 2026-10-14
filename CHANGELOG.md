@@ -15,6 +15,8 @@ to [Semantic Versioning](https://semver.org/).
 ### Added
 - A test that parses every `SKILL.md` frontmatter (runs in `prepublishOnly`) so a malformed
   skill can never be published again.
+- A packed-release regression test that validates the shipped skill manifest and loads
+  the shipped extension to check registration of all four QA commands.
 
 ## [0.2.1] — 2026-06-27
 

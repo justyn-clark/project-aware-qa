@@ -92,7 +92,7 @@ export default function projectAwareQaExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("qa-verify", {
 		description:
-			"Run safe checks (typecheck/lint/tests/route-probe/screenshots) with evidence. Flags: --install --tests --screenshots --start-dev-server --base-url <url> --max-routes <n> --timeout <ms>",
+			"Run safe checks with evidence. CI flags: --changed-since <ref> --require <id,id> --fail-on-incomplete --junit --sarif. Runtime flags: --install --tests --screenshots --start-dev-server --base-url <url> --max-routes <n> --timeout <ms>",
 		handler: async (raw, ctx) => {
 			const args = parseCommandArgs(pi, ctx, "verify", raw);
 			if (!args) return;

@@ -18,6 +18,10 @@ test("Pi parses scope, booleans, and all value flags without swallowing argument
 		baseUrl: "http://localhost:5173",
 		maxRoutes: 5,
 		timeoutMs: 2000,
+		changedSince: undefined,
+		requiredChecks: [],
+		failOnIncomplete: false,
+		exportFormats: [],
 	});
 });
 

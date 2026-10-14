@@ -12,6 +12,8 @@ to [Semantic Versioning](https://semver.org/).
 - Source/registry fingerprints, structured verification records, evidence digests, and
   separate `.qa/runs/<id>/` artifacts for every verification run.
 - CI configuration for Node 22/24/26 on Linux and Node 24 on macOS, including a packed CLI smoke test.
+- Git change-aware stack/route selection, enforceable required-check policies, and JUnit/SARIF
+  exports for CI systems.
 
 ### Fixed
 - Node monorepo checks retain their package directories and package managers. Parent

@@ -20,7 +20,8 @@ probe to back it.
 
 `scope` is an entity (`track`), a surface type (`crud-flow`, `cache-risk`, …), a risk level
 (`high`), or `admin`. `/qa-verify` flags: `--install`, `--tests`, `--screenshots`,
-`--start-dev-server`, `--base-url <url>`, `--max-routes <n>`.
+`--start-dev-server`, `--base-url <url>`, `--max-routes <n>`, `--timeout <ms>`,
+`--changed-since <git-ref>`, `--require <id,id>`, `--fail-on-incomplete`, `--junit`, `--sarif`.
 
 You can also run the steps as scripts when outside Pi:
 `tsx scripts/scan.ts <dir>`, `plan.ts`, `verify.ts`, `report.ts`.
@@ -62,6 +63,11 @@ fingerprints and evidence digests; stale or missing artifacts cannot substantiat
 results. Preserve `inconclusive` and `skipped` statuses. A successful command exit alone
 does not establish complete verification. Related test filenames and cache signals are
 inference with unknown coverage/execution, not proof of behavior.
+
+For CI or pull-request verification, scan the exact checkout before using `--changed-since`.
+The change set includes committed and local changes; root or unmapped shared files expand to
+all stacks. Verification is advisory unless `--require` or `--fail-on-incomplete` is supplied.
+Use the per-run JSON as the source record and JUnit/SARIF exports only as downstream views.
 
 ## Brakes — ask before
 

@@ -18,6 +18,10 @@ export interface VerifyFlags {
 	baseUrl?: string;
 	maxRoutes?: number;
 	timeoutMs?: number;
+	changedSince?: string;
+	requiredChecks: string[];
+	failOnIncomplete: boolean;
+	exportFormats: Array<"junit" | "sarif">;
 }
 
 export interface ParsedArgs {
@@ -29,11 +33,19 @@ export interface ParsedArgs {
 	maxFiles?: number;
 }
 
-const VERIFY_BOOLEANS = ["install", "tests", "screenshots", "start-dev-server"];
+const VERIFY_BOOLEANS = [
+	"install",
+	"tests",
+	"screenshots",
+	"start-dev-server",
+	"fail-on-incomplete",
+	"junit",
+	"sarif",
+];
 const VALUE_OPTIONS: Record<QaCommand, string[]> = {
 	scan: ["max-files"],
 	plan: ["scope"],
-	verify: ["scope", "base-url", "max-routes", "timeout"],
+	verify: ["scope", "base-url", "max-routes", "timeout", "changed-since", "require"],
 	report: [],
 };
 const NUMBER_OPTIONS = new Set(["max-files", "max-routes", "timeout"]);
@@ -159,6 +171,15 @@ export function parseQaArgs(
 }
 
 export function verifyFlags(args: ParsedArgs): VerifyFlags {
+	const requiredChecks = (args.values.get("require") ?? "")
+		.split(",")
+		.map((check) => check.trim().toLowerCase())
+		.filter(Boolean);
+	for (const check of requiredChecks) {
+		if (!/^[a-z0-9][a-z0-9._:-]*$/.test(check)) {
+			throw new ArgumentError(`Invalid required check ${JSON.stringify(check)}.`);
+		}
+	}
 	return {
 		scope: args.scope,
 		runInstall: args.flags.has("install"),
@@ -168,6 +189,13 @@ export function verifyFlags(args: ParsedArgs): VerifyFlags {
 		baseUrl: args.values.get("base-url"),
 		maxRoutes: args.values.has("max-routes") ? Number(args.values.get("max-routes")) : undefined,
 		timeoutMs: args.values.has("timeout") ? Number(args.values.get("timeout")) : undefined,
+		changedSince: args.values.get("changed-since"),
+		requiredChecks: [...new Set(requiredChecks)],
+		failOnIncomplete: args.flags.has("fail-on-incomplete"),
+		exportFormats: [
+			...(args.flags.has("junit") ? (["junit"] as const) : []),
+			...(args.flags.has("sarif") ? (["sarif"] as const) : []),
+		],
 	};
 }
 

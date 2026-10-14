@@ -65,6 +65,17 @@ export function renderVerificationReport(result: VerifyResult): string {
 	lines.push(
 		`_Target: \`${result.root}\` · package manager: \`${result.project.packageManager}\`_\n`,
 	);
+	if (result.selection) {
+		lines.push("## Change selection\n");
+		lines.push(
+			`Base \`${result.selection.baseRef}\` (\`${result.selection.baseCommit.slice(0, 12)}\`) · ${result.selection.changedFiles.length} changed files · ${result.selection.stackRoots.length} stacks · ${result.selection.surfaceIds.length} directly affected surfaces.\n`,
+		);
+		if (result.selection.globalImpact) {
+			lines.push(
+				"A root/shared change conservatively selected every detected stack and surface.\n",
+			);
+		}
+	}
 
 	const passed = result.checks.filter((c) => c.status === "passed").length;
 	const failed = result.checks.filter((c) => c.status === "failed").length;
@@ -72,6 +83,14 @@ export function renderVerificationReport(result: VerifyResult): string {
 	const inconclusive = result.checks.filter((c) => c.status === "inconclusive").length;
 	const incBit = inconclusive ? ` · ${inconclusive} inconclusive` : "";
 	lines.push(`**${passed} passed · ${failed} failed · ${skipped} skipped${incBit}**\n`);
+	if (result.policy) {
+		lines.push("## Policy\n");
+		lines.push(
+			`${result.policy.passed ? "✅ passed" : "❌ failed"} · required: ${result.policy.requiredChecks.length ? result.policy.requiredChecks.map((check) => `\`${check}\``).join(", ") : "none"} · fail on incomplete: ${result.policy.failOnIncomplete ? "yes" : "no"}\n`,
+		);
+		for (const violation of result.policy.violations) lines.push(`- ${violation}`);
+		lines.push("");
+	}
 
 	lines.push("## Checks\n");
 	lines.push(
@@ -142,7 +161,9 @@ export function renderVerificationReport(result: VerifyResult): string {
 	}
 
 	lines.push("\n## Honesty ledger\n");
-	lines.push("- Claims are backed by the linked command logs under `.qa/findings/`.");
+	lines.push(
+		"- Claims are backed by the linked command logs under the verification run directory.",
+	);
 	if (skipped > 0)
 		lines.push(
 			`- ${skipped} check(s) were **skipped** — each lists its reason and is **not** counted as passing.`,

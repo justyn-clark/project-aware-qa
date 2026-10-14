@@ -23,6 +23,7 @@ import {
 	validateProjectRoot,
 } from "./provenance.js";
 import { validateRegistry } from "./registry/schema.js";
+import { renderJUnit, renderSarif } from "./report/machine.js";
 import {
 	renderCrudMatrix,
 	renderRiskReport,
@@ -33,6 +34,7 @@ import { renderQaReport } from "./report/summary.js";
 import { renderVerificationReport } from "./report/verification.js";
 import { type ScanResult, scanRepo } from "./scanner/index.js";
 import { matchesScope } from "./scope.js";
+import { evaluatePolicy } from "./verification-policy.js";
 import {
 	captureEvidenceManifest,
 	readVerificationSummary,
@@ -169,7 +171,7 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyStepResul
 				reason: "Source changed during verification. Scan and verify the new snapshot again.",
 			});
 		}
-		const evidence = captureEvidenceManifest(root, verify);
+		let evidence = captureEvidenceManifest(root, verify);
 		if (evidence.issues.length) {
 			verify.checks.push({
 				id: "evidence-integrity",
@@ -177,6 +179,37 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyStepResul
 				status: "inconclusive",
 				reason: `${evidence.issues.join("; ")} Run verification again to regenerate the evidence.`,
 			});
+		}
+		if (options.requiredChecks?.length || options.failOnIncomplete) {
+			const policy = evaluatePolicy(verify.checks, {
+				requiredChecks: options.requiredChecks ?? [],
+				failOnIncomplete: options.failOnIncomplete ?? false,
+			});
+			verify.policy = policy;
+			verify.checks.push({
+				id: "policy",
+				title: "Verification policy",
+				status: policy.passed ? "passed" : "failed",
+				summary: policy.passed
+					? `${policy.requiredChecks.length} required check patterns satisfied`
+					: `${policy.violations.length} policy violation(s)`,
+				reason: policy.passed ? undefined : policy.violations.join(" "),
+			});
+		}
+		evidence = captureEvidenceManifest(root, verify);
+		const machineFiles: string[] = [];
+		for (const format of new Set(options.exportFormats ?? [])) {
+			if (format === "junit") {
+				machineFiles.push(
+					writeArtifact(root, `${prefix}/verification.junit.xml`, renderJUnit(verify)),
+				);
+				machineFiles.push(writeArtifact(root, "verification.junit.xml", renderJUnit(verify)));
+			} else if (format === "sarif") {
+				machineFiles.push(
+					writeArtifact(root, `${prefix}/verification.sarif.json`, renderSarif(verify)),
+				);
+				machineFiles.push(writeArtifact(root, "verification.sarif.json", renderSarif(verify)));
+			}
 		}
 		const record: VerificationRecord = {
 			version: 1,
@@ -203,7 +236,7 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyStepResul
 			ok: failed === 0,
 			outcome: failed ? "failed" : skipped || inconclusive ? "incomplete" : "passed",
 			summary: `Verification: ${passed} passed · ${failed} failed · ${skipped} skipped${incBit}. Evidence in .qa/${prefix}/.`,
-			writtenFiles: [file, qaPath(root, "verification.json"), archived, json],
+			writtenFiles: [file, qaPath(root, "verification.json"), archived, json, ...machineFiles],
 			verify,
 		};
 	} catch (e) {

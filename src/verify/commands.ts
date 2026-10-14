@@ -3,7 +3,7 @@
  *
  * Brakes are enforced here, not by convention: install and full test runs are gated
  * behind explicit opt-in flags and otherwise recorded as `skipped` with a reason.
- * Every executed command captures its full stdout/stderr to `.qa/findings/<id>.log` so
+ * Every executed command captures its full stdout/stderr for the verification run so
  * the report can cite evidence for every claim.
  */
 import { type ChildProcess, spawn } from "node:child_process";

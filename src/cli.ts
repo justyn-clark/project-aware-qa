@@ -22,8 +22,10 @@ All commands: --root <directory>, --json
 Scan: --max-files <positive integer>
 Verify: --scope <value>, --tests, --install, --screenshots,
         --start-dev-server, --base-url <url>, --max-routes <n>, --timeout <ms>
+        --changed-since <git-ref>, --require <id,id>, --fail-on-incomplete,
+        --junit, --sarif
 
-Verification is advisory: inspect skipped/inconclusive results in verification.json.
+Verification is advisory unless an explicit --require/--fail-on-incomplete policy is supplied.
 Exit 0 means the operation completed without failed checks; exit 1 means failure.
 `);
 } else {

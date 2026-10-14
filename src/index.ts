@@ -2,6 +2,7 @@
  * Public API for project-aware-qa. The CLI scripts and the Pi extension import from here.
  */
 
+export { type ChangeSelection, selectChanges } from "./change-selection.js";
 export {
 	runPlan,
 	runReport,
@@ -24,8 +25,15 @@ export {
 } from "./io.js";
 export { buildRegistry } from "./registry/build.js";
 export { assertValidRegistry, type ValidationResult, validateRegistry } from "./registry/schema.js";
+export { renderJUnit, renderSarif } from "./report/machine.js";
 export { type ScanOptions, type ScanResult, scanRepo } from "./scanner/index.js";
 export * from "./types.js";
+export {
+	evaluatePolicy,
+	normalizeRequiredChecks,
+	type PolicyEvaluation,
+	type VerificationPolicy,
+} from "./verification-policy.js";
 export {
 	type CheckResult,
 	runVerification,

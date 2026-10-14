@@ -90,6 +90,19 @@ node dist/src/cli.js verify /path/to/repo --tests --json
 node dist/src/cli.js report /path/to/repo
 ```
 
+For a pull request or CI job, scan the exact checkout and restrict verification to the
+changed stacks and directly affected routes:
+
+```bash
+project-aware-qa scan . --json
+project-aware-qa verify . --changed-since origin/main --tests \
+  --require registry,typecheck,lint,test --junit --sarif --json
+```
+
+`--changed-since` combines the Git three-dot diff with staged, unstaged, and untracked files.
+Root configuration and unmapped shared files conservatively select every stack. The selection
+and resolved base commit are recorded in each run as `change-selection.json`.
+
 `npm pack` builds the executable before packing. Installing that tarball exposes
 `project-aware-qa` with the same commands, without requiring Pi or `tsx`.
 The TypeScript wrapper scripts remain available during development:
@@ -105,10 +118,14 @@ Arguments are shared between Pi and the CLI. Unknown options, missing values, co
 arguments, and nonpositive numeric limits fail before running a workflow. Quote paths and
 scopes containing spaces. `--json` is available on CLI commands only.
 
-Use the tool as an **advisory CI check**. Exit 0 means the command completed without failed
-checks; skipped and inconclusive checks can still exist. Inspect `outcome` and the structured
-verification record before enforcing a team policy. Exit 1 indicates failure; cancellation
-exits 130. Required-check policies, PR change selection, and JUnit/SARIF export remain future work.
+Verification remains advisory by default. `--require <id,id>` promotes missing, failed,
+skipped, or inconclusive matching checks to a policy failure; a requirement such as `typecheck`
+matches every package-specific typecheck ID. `--fail-on-incomplete` additionally rejects any
+skipped or inconclusive check. Exit 1 indicates a check or policy failure; cancellation exits 130.
+
+`--junit` writes `.qa/verification.junit.xml`; `--sarif` writes
+`.qa/verification.sarif.json`. Immutable copies live in `.qa/runs/<id>/` beside the JSON and
+Markdown reports. CI can upload these standard artifacts without parsing terminal output.
 
 ### Evidence freshness
 
@@ -215,3 +232,5 @@ Validated against `templates/surface-registry.schema.json`.
   they establish a source snapshot, not reproducibility of external services or databases.
 - Process-tree cleanup has local POSIX regression coverage; Windows behavior and real browser
   integration require separate validation. The CI matrix is configuration until run on GitHub.
+- Change selection is file/stack aware but does not yet model dependency graphs between services;
+  root and unmapped shared changes therefore expand to all stacks.

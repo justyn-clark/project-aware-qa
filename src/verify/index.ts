@@ -3,20 +3,22 @@
  *
  * Runs the safe-check ladder — registry validation, install check, typecheck, lint,
  * tests, targeted route probes, screenshots — honouring brakes (install + full test run
- * + screenshots are opt-in). Every executed command writes a full log under
- * `.qa/findings/` and every result carries either evidence or a skip reason, so the
+ * + screenshots are opt-in). Every executed command writes a full log under its run's
+ * `.qa/runs/<id>/findings/` directory and every result carries either evidence or a skip reason, so the
  * report can never claim "done" without backing.
  */
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import { type ChangeSelection, selectChanges } from "../change-selection.js";
 import { detectPlaywright } from "../detectors/playwright.js";
 import { readRegistry, writeArtifact } from "../io.js";
 import { validateRegistry } from "../registry/schema.js";
 import { clearFileCache, walkRepo } from "../scanner/files.js";
 import { scanStacks } from "../stacks/index.js";
 import type { ProjectInfo, StackInfo, SurfaceRegistry } from "../types.js";
+import type { PolicyEvaluation } from "../verification-policy.js";
 import {
 	packageManagerInstall,
 	type RunResult,
@@ -72,6 +74,14 @@ export interface VerifyOptions {
 	baseUrl?: string;
 	maxRoutes?: number;
 	timeoutMs?: number;
+	/** Restrict checks and routes to changes since this Git ref, plus local changes. */
+	changedSince?: string;
+	/** Check ids or id prefixes that must run and pass. */
+	requiredChecks?: string[];
+	/** Promote every skipped or inconclusive check to a policy failure. */
+	failOnIncomplete?: boolean;
+	/** Additional CI artifacts written beside the verification record. */
+	exportFormats?: Array<"junit" | "sarif">;
 }
 
 export interface VerifyResult {
@@ -83,6 +93,8 @@ export interface VerifyResult {
 	probes: RouteProbe[];
 	screenshots: ScreenshotResult[];
 	baseUrl: string;
+	selection?: ChangeSelection;
+	policy?: PolicyEvaluation;
 }
 
 function artifactPath(prefix: string | undefined, path: string): string {
@@ -165,11 +177,28 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 				: `${errors.length} schema errors (e.g. ${errors[0]?.path}: ${errors[0]?.message})`,
 		});
 	}
+	let selection: ChangeSelection | undefined;
+	if (options.changedSince) {
+		if (!registry) throw new Error("Change-aware verification requires a surface registry.");
+		selection = selectChanges(root, registry, project, options.changedSince);
+		const selectionPath = artifact("change-selection.json");
+		writeArtifact(root, selectionPath, `${JSON.stringify(selection, null, 2)}\n`);
+		checks.push({
+			id: "change-selection",
+			title: "Change-aware verification selection",
+			status: "passed",
+			summary: `${selection.changedFiles.length} changed files · ${selection.stackRoots.length} stacks · ${selection.surfaceIds.length} directly affected surfaces`,
+			evidencePath: selectionPath,
+		});
+	}
 
 	// 2-5. Per-stack check ladder: deps/install → typecheck → lint → tests. Each stack runs
 	// its own commands in its own subdir (monorepo-aware); brakes are honoured per stack.
+	const selectedStacks = selection
+		? project.stacks.filter((stack) => selection?.stackRoots.includes(stack.rootRel))
+		: project.stacks;
 	const multi = project.stacks.length > 1;
-	for (const stack of project.stacks) {
+	for (const stack of selectedStacks) {
 		await runStackLadder(stack, { root, multi, options, timeoutMs }, checks);
 		options.signal?.throwIfAborted();
 	}
@@ -184,9 +213,13 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 	let probes: RouteProbe[] = [];
 	let screenshots: ScreenshotResult[] = [];
 
-	const visualSurfaces = registry
+	let visualSurfaces = registry
 		? selectVisualRoutes(registry, { max: options.maxRoutes ?? 15, scope: options.scope })
 		: [];
+	if (selection) {
+		const affected = new Set(selection.surfaceIds);
+		visualSurfaces = visualSurfaces.filter((surface) => affected.has(surface.id));
+	}
 	const routePaths = visualSurfaces.map((s) => s.frontendRoute as string);
 	let devServer: ReturnType<typeof spawn> | undefined;
 	let devRun: RunResult | undefined;
@@ -206,7 +239,7 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 				options.signal,
 			);
 			options.signal?.throwIfAborted();
-			const devStack = project.stacks.find((s) => s.checks.dev);
+			const devStack = selectedStacks.find((s) => s.checks.dev);
 			const dev = devStack?.checks.dev;
 			if (alreadyUp) {
 				checks.push({
@@ -280,7 +313,9 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 				title: "Targeted route checks",
 				status: "skipped",
 				reason: registry
-					? "No renderable routes selected for this scope"
+					? selection
+						? "No renderable routes were directly affected by the selected changes"
+						: "No renderable routes selected for this scope"
 					: "No registry — run /qa-scan",
 			});
 		} else if (devCheck?.status === "failed") {
@@ -392,7 +427,17 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 		}
 	}
 	options.signal?.throwIfAborted();
-	return { root, generatedAt, project, registry, checks, probes, screenshots, baseUrl };
+	return {
+		root,
+		generatedAt,
+		project,
+		registry,
+		checks,
+		probes,
+		screenshots,
+		baseUrl,
+		selection,
+	};
 }
 
 function safeId(s: string): string {

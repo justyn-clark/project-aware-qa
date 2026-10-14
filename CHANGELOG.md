@@ -27,7 +27,7 @@ to [Semantic Versioning](https://semver.org/).
 - Plan and verification scopes consistently select risk, surface type, entity, and route.
 - HTML templates reach Python form detection; runtime tool metadata uses the package version.
 
-## [0.2.2] — unreleased
+## [0.2.2] — 2026-10-14
 
 ### Fixed
 - **Skill frontmatter** — `0.2.1` shipped a broken `SKILL.md`: a colon in the `description`

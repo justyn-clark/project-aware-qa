@@ -17,7 +17,7 @@ specific ecosystems, and a generic adapter gives every other language a useful b
 A monorepo (e.g. a Remix frontend + a Phoenix backend) is detected as multiple stacks and
 verified per-stack.
 
-This branch contains the **0.3 development preview**. The separate 0.2.2 maintenance
+This branch contains the **0.3 development preview**. The published 0.2.2 maintenance
 package fixes skill loading; the reliability and CLI improvements below are unreleased.
 
 ### Stacks

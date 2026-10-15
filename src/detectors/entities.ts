@@ -3,7 +3,7 @@
  *
  * Entity names are the glue that maps a frontend route ("/admin/tracks") to a backend
  * controller (@Controller('track')) to a form to a cache key. We normalize aggressively
- * (kebab/camel/snake → words, plural → singular) so "tracks", "Track", "track-genre"
+ * (kebab/camel/snake -> words, plural -> singular) so "tracks", "Track", "track-genre"
  * collapse onto comparable keys.
  */
 
@@ -84,7 +84,7 @@ export function words(input: string): string[] {
 		.filter(Boolean);
 }
 
-/** Naive English singularization — good enough for entity matching. */
+/** Naive English singularization - good enough for entity matching. */
 export function singularize(word: string): string {
 	const w = word.toLowerCase();
 	if (w.length <= 3) return w;
@@ -134,7 +134,7 @@ export function entityFromControllerPrefix(prefix: string): string | undefined {
 	return e;
 }
 
-/** Title-case a singular entity for display ("track" → "Track"). */
+/** Title-case a singular entity for display ("track" -> "Track"). */
 export function entityTitle(entity: string): string {
 	return entity
 		.split(/[^a-zA-Z0-9]+/)

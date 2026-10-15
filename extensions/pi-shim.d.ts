@@ -4,7 +4,7 @@
  * Pi loads `extensions/qa.ts` with its own bundled TypeScript loader and injects the
  * real `ExtensionAPI` at runtime, so this shim only needs to satisfy `tsc` during
  * `npm run build`. It is deliberately a faithful *subset* of
- * `@earendil-works/pi-coding-agent` (v0.80.x) — not the full surface.
+ * `@earendil-works/pi-coding-agent` (v0.80.x) - not the full surface.
  *
  * If you install `@earendil-works/pi-coding-agent` as a dependency, delete this file
  * and the real types take over.

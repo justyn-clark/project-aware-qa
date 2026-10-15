@@ -2,7 +2,7 @@
  * Validate every SKILL.md / prompt frontmatter parses as YAML with the required fields.
  *
  * Pi's skill loader parses this frontmatter, and the lint/typecheck/test gate does NOT
- * otherwise touch it — so a stray colon in an unquoted value (which YAML reads as a nested
+ * otherwise touch it - so a stray colon in an unquoted value (which YAML reads as a nested
  * mapping) ships silently. This test is the guard: it runs in `prepublishOnly`.
  */
 import assert from "node:assert/strict";

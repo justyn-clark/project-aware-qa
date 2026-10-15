@@ -34,7 +34,7 @@
       "properties": {
         "name": { "type": "string" },
         "root": { "type": "string" },
-        "packageManager": { "type": "string", "description": "Primary stack's package manager (npm/pnpm/yarn/bun/mix/go/cargo/pip/…)." },
+        "packageManager": { "type": "string", "description": "Primary stack's package manager (npm/pnpm/yarn/bun/mix/go/cargo/pip/...)." },
         "frameworks": { "type": "array", "items": { "type": "string" } },
         "scripts": { "type": "object", "additionalProperties": { "type": "string" } },
         "testRunners": { "type": "array", "items": { "type": "string" } },

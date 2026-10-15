@@ -39,7 +39,7 @@ const DEFAULT_IGNORES = new Set([
 	".mix",
 ]);
 
-// Broad, multi-language source set — adapters filter this down to their own extensions.
+// Broad, multi-language source set - adapters filter this down to their own extensions.
 const CODE_EXTENSIONS = new Set([
 	// JS/TS + web
 	".ts",
@@ -315,7 +315,7 @@ export interface GrepMatch {
 	groups: string[];
 }
 
-/** Build sorted offsets of each line start, for O(log n) index→line lookup. */
+/** Build sorted offsets of each line start, for O(log n) index->line lookup. */
 function lineStarts(content: string): number[] {
 	const starts = [0];
 	for (let i = 0; i < content.length; i++) {

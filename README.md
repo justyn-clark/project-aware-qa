@@ -8,7 +8,7 @@ runs evidence-based checks, captures screenshots, and writes `.qa/*` reports.
 
 It is *project-aware*: instead of running generic checks, it first builds a **surface
 registry** by correlating frontend routes, backend endpoints, forms, DTOs, cache usage and
-existing tests by **entity**, then plans and verifies the riskiest surfaces — admin/CRUD
+existing tests by **entity**, then plans and verifies the riskiest surfaces - admin/CRUD
 flows, mutations without cache invalidation, forms whose fields don't match their DTO, and
 untested mutating areas.
 
@@ -25,16 +25,16 @@ configuration, ownership, baselines, authenticated checks, and CI exports.
 
 | Adapter | Coverage |
 | --- | --- |
-| **node** (deep) | React Router / Remix routes, NestJS controllers/DTOs, forms, cache, Vitest/Jest/Playwright |
+| **node** (deep) | React Router / Remix and Next.js routes/APIs; Express.js and Fastify endpoints; NestJS controllers/DTOs; forms, cache, Vitest/Jest/Playwright |
 | **phoenix** (deep) | Phoenix router (scopes/pipelines, `resources`, LiveView), controllers, Ecto schemas, HEEx forms, Cachex, ExUnit |
 | **python** (deep) | FastAPI/Flask decorator routes (APIRouter/Blueprint prefixes, Pydantic bodies), Django `urls.py` + DRF `router.register` + `@admin.register` CRUD, Pydantic/DRF/Django-model/form DTOs, templates, cache, pytest |
 | **go** (deep) | chi / gin / echo / fiber / gorilla / net-http routes (chi `Route` closures + `Group` prefixes, gorilla `.Methods`, Go 1.22 `"GET /path"`), request/response structs as DTOs, `go test`, `go build/vet`/golangci-lint |
 | **rust** (deep) | axum `.route(...)` chains, actix/Rocket `#[get]` macros, serde `Deserialize` structs as DTOs, `cargo build/test/clippy` |
 | **java** (deep) | Spring `@RestController`/`@*Mapping` (class prefix + `@RequestBody`), JAX-RS `@Path`/`@GET`, records + `*Request`/`*Dto` classes, maven/gradle |
 | **csharp** (deep) | ASP.NET Core minimal APIs (`MapGet`/`MapGroup`) + MVC controllers (`[HttpGet]`, `[controller]`, `[FromBody]`), record/`*Request` DTOs, `dotnet build/test` |
-| **generic** (any language) | Detects the project type — **Zig, Odin, Godot (GUT), C/C++, Swift, Ruby, PHP, …** (and any language above when no web framework is present) — maps build/test/lint commands, and emits a test-gap baseline, so even systems/game stacks get something useful instead of "0 files" |
+| **generic** (any language) | Detects the project type - **Zig, Odin, Godot (GUT), C/C++, Swift, Ruby, PHP, ...** (and any language above when no web framework is present) - maps build/test/lint commands, and emits a test-gap baseline, so even systems/game stacks get something useful instead of "0 files" |
 
-Adding a deep adapter for a new ecosystem is incremental — implement one `StackAdapter`
+Adding a deep adapter for a new ecosystem is incremental - implement one `StackAdapter`
 (file extensions, toolchain, detectors) and the shared inference/risk/report/verify core
 works unchanged.
 
@@ -47,7 +47,7 @@ skill, so Pi discovers both.
 # Install the published package:
 pi install npm:@justynclark/project-aware-qa
 
-# …or from this repo (git source or a local clone):
+# ...or from this repo (git source or a local clone):
 pi install git:github.com/justyn-clark/project-aware-qa
 pi install .
 ```
@@ -75,7 +75,7 @@ pi -e extensions/qa.ts   # load the local extension for a session
 | `/qa-verify [scope] [flags]` | `.qa/verification.json`, `verification-report.md`, `.qa/runs/<id>/*` |
 | `/qa-report` | `.qa/qa-report.md` |
 
-`/qa-verify` flags (all **off by default** — they're brakes):
+`/qa-verify` flags (all **off by default** - they're brakes):
 `--install`, `--tests`, `--screenshots`, `--start-dev-server`, `--base-url <url>`,
 `--max-routes <n>`, `--timeout <ms>`.
 
@@ -184,49 +184,83 @@ relationships require explicit verification.
 ## The repair loop
 
 ```
-scan → plan → verify → fix → scan → verify → report
+scan -> plan -> verify -> fix -> scan -> verify -> report
 ```
 
 Nothing is "done" without evidence. Executed checks link their logs under
 `.qa/runs/<id>/findings/`, and every failing check becomes a repair-loop finding carrying:
-**issue · evidence · suspected cause · fix status · rerun evidence · remaining gap.**
-Skipped checks are never counted as passing — they record *why* they were skipped.
+**issue | evidence | suspected cause | fix status | rerun evidence | remaining gap.**
+Skipped checks are never counted as passing - they record *why* they were skipped.
 
-### Route checks are calibrated, not naïve
+### Route checks are calibrated, not naive
 
 An HTTP status is only a trustworthy route signal when the server distinguishes real
 routes from unknown ones. So `/qa-verify` first **calibrates** the server (probes the root
 and a deliberately-nonexistent path):
 
-- **SSR / framework apps** (unknown path → 404): status is meaningful. Routes that 2xx/3xx
+- **SSR / framework apps** (unknown path -> 404): status is meaningful. Routes that 2xx/3xx
   pass; **any 404/5xx fails the check** (partial = failed), with the broken routes named by
   source file. 404s that are mere normalization artifacts (trailing slash) are **rescued**
   by a variant re-probe before being reported. 401/403 are treated as auth-gated (a soft
   note, not a failure).
-- **SPA / catch-all apps** (unknown path → 200): HTTP status can't validate routes, so the
+- **SPA / catch-all apps** (unknown path -> 200): HTTP status can't validate routes, so the
   route check is reported **inconclusive** (never a false pass), and the authoritative
-  verdict comes from the **rendered-DOM check** in `--screenshots` mode — which flags pages
+  verdict comes from the **rendered-DOM check** in `--screenshots` mode - which flags pages
   that render a not-found/error boundary and counts console errors.
 
 `inconclusive` is a first-class status: not a pass, not a fail, with the reason recorded.
 
 ## What it detects
 
-- **Routes** — React Router (RR6 `<Route>`, RR7 `route()`/`index()` config) and
+- **Routes** - React Router (RR6 `<Route>`, RR7 `route()`/`index()` config) and
   Remix/flat-routes file conventions (`app/routes/**`, `$param`, `_index`, pathless `_`
-  layouts, `.route.tsx`, hybrid folders), plus light Next.js app-router support.
-- **Backend** — NestJS controllers/endpoints (`@Controller`, `@Get/@Post/@Put/@Patch/@Delete`,
-  `@Body() Dto`) and DTOs with class-validator decorators.
-- **Forms** — Remix `<Form>`, raw `<form>`, react-hook-form, Formik, with field names.
-- **Cache/invalidation** — TanStack Query (`useQuery`/`useMutation`/`invalidateQueries`),
+  layouts, `.route.tsx`, hybrid folders), plus Next.js App and Pages Routers.
+- **Backend** - NestJS controllers/endpoints (`@Controller`, `@Get/@Post/@Put/@Patch/@Delete`,
+  `@Body() Dto`) and DTOs with class-validator decorators; Next.js API handlers;
+  Express.js apps/mounted routers; Fastify shorthand and route objects.
+- **Forms** - Remix `<Form>`, raw `<form>`, react-hook-form, Formik, with field names.
+- **Cache/invalidation** - TanStack Query (`useQuery`/`useMutation`/`invalidateQueries`),
   SWR (`useSWR`/`mutate`), React Router revalidation, `cachified` + `clearCacheKey`,
   NestJS `cache-manager`, and `localStorage`/`sessionStorage`.
-- **Tests** — Vitest / Jest / Playwright, mapped to the entities they cover.
+- **Tests** - Vitest / Jest / Playwright, mapped to the entities they cover.
+
+### JavaScript and TypeScript framework support
+
+The expanded Next.js, Express.js and Fastify detectors are unreleased source changes.
+They are not included in the published 0.3.0 npm package.
+
+| Framework | Static discovery | Limits |
+| --- | --- | --- |
+| React Router / Remix | JSX routes, RR7 route config, flat file routes, loaders/actions, forms | Custom runtime routing needs manual review |
+| Next.js | App and Pages Router pages; `src/` roots; route groups, parallel slots, dynamic/catch-all parameters; App HTTP exports and Pages API handlers | No rewrites, interception, custom page extensions, middleware or Server Action inference |
+| Express.js | Imported app/Router constructors; literal HTTP methods; `route()` chains; nested/multiple mounts; local ESM named/default and CommonJS default router imports | Module-level declarations and registrations; no dynamic paths, factory wrappers, alias/barrel resolution or runtime middleware semantics |
+| Fastify | Imported constructors; literal shorthand routes and `route({method, url, handler})`, including method arrays | Module-level registration; no plugin prefix inference or runtime registration |
+| NestJS | Controllers, HTTP decorators, DTO fields/validation | Static decorator evidence |
+| Vue / Nuxt / SvelteKit / Angular / Astro | Manifest recognition and conventional package scripts for test/build/lint/typecheck | Framework-specific page/endpoint discovery is not implemented |
+
+These are source-derived surfaces, not proof that a route is deployed or working.
+Next.js Pages API handlers are recorded as `ALL` because their implementation decides
+which methods to accept. `HEAD` and `OPTIONS` retain their actual methods. Unmounted
+Express routers are omitted; they are not assumed to be public root routes. Comments,
+string contents, test fixtures and unrelated HTTP client calls do not establish routes.
+Each workspace package is scanned within its own manifest boundary.
+
+Conventions follow the [Next.js routing documentation](https://nextjs.org/docs/app/getting-started/layouts-and-pages),
+[Express routing guide](https://expressjs.com/en/guide/routing/), and
+[Fastify route reference](https://fastify.dev/docs/latest/Reference/Routes/).
+
+### ASCII-only project text
+
+All project-owned source, documentation, templates and output labels must use ASCII.
+Use ordinary hyphens, `->`, and labels such as `[PASS]` and `[WARN]` instead of typographic
+punctuation or emoji. `test/ascii.test.ts` enforces this in the normal test/CI suite.
+Scanned source evidence, user input and external command output remain verbatim;
+ASCII formatting must not alter another project's data.
 
 ## Architecture
 
 ```
-extensions/qa.ts          Pi extension — registers /qa-scan /qa-plan /qa-verify /qa-report
+extensions/qa.ts          Pi extension - registers /qa-scan /qa-plan /qa-verify /qa-report
 scripts/*.ts              CLI wrappers around the same core
 src/
   types.ts                Surface + registry model (Phase 3 core object)
@@ -241,7 +275,7 @@ templates/                surface-registry.schema.json + report templates
 skills/project-aware-qa/  SKILL.md (agent guidance)
 ```
 
-Runtime dependencies: **none** — the scanner uses only Node built-ins. Playwright is used
+Runtime dependencies: **none** - the scanner uses only Node built-ins. Playwright is used
 opportunistically (resolved from the target repo or globally) and is never required.
 
 ## Surface registry
@@ -253,7 +287,7 @@ The central artifact (`.qa/surface-registry.json`) is an array of `Surface` obje
   risk, riskScore, riskReasons, inferredTests, evidence, gaps }
 ```
 
-`type ∈ { crud-flow, form, api-endpoint, route, cache-risk, visual-page, test-gap }`.
+`type in { crud-flow, form, api-endpoint, route, cache-risk, visual-page, test-gap }`.
 Validated against `templates/surface-registry.schema.json`.
 
 ## Limitations (v1)

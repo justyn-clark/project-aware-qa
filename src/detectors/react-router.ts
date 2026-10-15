@@ -27,7 +27,7 @@ function isAdminPath(routePath: string, file: string): boolean {
 }
 
 /**
- * Reject strings that matched a route regex but cannot be real URL paths — guards against
+ * Reject strings that matched a route regex but cannot be real URL paths - guards against
  * picking up `path:`/`<Route>`/`route()` occurrences inside comments, regexes, or docs
  * (a real risk for codebases that *talk about* routing, including this tool itself).
  */
@@ -53,7 +53,7 @@ export function remixFilePathToRoute(relFromRoutes: string): {
 	params: string[];
 } {
 	let p = relFromRoutes.replace(ROUTE_FILE_RE, "");
-	// "folder/route" (folder-as-route) → drop trailing "route"
+	// "folder/route" (folder-as-route) -> drop trailing "route"
 	p = p.replace(/\/route$/, "");
 	// ".route" suffix on a flat file
 	p = p.replace(/\.route$/, "");
@@ -117,7 +117,7 @@ function detectRemixFileRoutes(repo: RepoFiles): RouteInfo[] {
 		(f) => ROUTE_FILE_RE.test(f.path) && routeDirRe.test(f.path),
 	);
 	// If the project uses the `.route.tsx` convention (or folder `route.tsx`), then plain
-	// files under routes/ are colocated components, not routes — require the convention.
+	// files under routes/ are colocated components, not routes - require the convention.
 	const usesRouteConvention = inRoutesDir.some(
 		(f) => ROUTE_SUFFIX_RE.test(f.path) || FOLDER_ROUTE_RE.test(f.path),
 	);
@@ -249,43 +249,6 @@ function detectJsxRoutes(repo: RepoFiles): RouteInfo[] {
 	return routes;
 }
 
-function detectNextRoutes(repo: RepoFiles): RouteInfo[] {
-	const routes: RouteInfo[] = [];
-	const appPageRe = /(^|\/)app\/(.+\/)?page\.(t|j)sx?$/;
-	for (const f of repo.files) {
-		const m = appPageRe.exec(f.path);
-		if (!m) continue;
-		const rel = f.path.replace(/(^|\/)app\//, "").replace(/page\.(t|j)sx?$/, "");
-		const segments = rel
-			.split("/")
-			.filter(Boolean)
-			.filter((s) => !/^\(.*\)$/.test(s));
-		const params: string[] = [];
-		const parts = segments.map((s) => {
-			const dyn = /^\[\.{0,3}(.+)\]$/.exec(s);
-			if (dyn) {
-				params.push(dyn[1] as string);
-				return `:${dyn[1]}`;
-			}
-			return s;
-		});
-		const routePath = `/${parts.join("/")}`.replace(/\/$/, "") || "/";
-		routes.push({
-			routePath,
-			file: f.path,
-			kind: "next-app",
-			isAdmin: isAdminPath(routePath, f.path),
-			isIndex: segments.length === 0,
-			isLayout: false,
-			hasLoader: false,
-			hasAction: false,
-			params,
-			entity: entityFromSegments(segments),
-		});
-	}
-	return routes;
-}
-
 /** Detect routes using whichever strategies match the project's frameworks. */
 export function detectRoutes(repo: RepoFiles, frameworks: string[]): RouteInfo[] {
 	const all: RouteInfo[] = [];
@@ -295,9 +258,14 @@ export function detectRoutes(repo: RepoFiles, frameworks: string[]): RouteInfo[]
 		all.push(...detectConfigRoutes(repo));
 		all.push(...detectJsxRoutes(repo));
 	}
-	if (fw.has("next")) all.push(...detectNextRoutes(repo));
+
 	// If no framework matched but route files exist, still try file-based detection.
-	if (all.length === 0) {
+	if (
+		all.length === 0 &&
+		!["next", "express", "fastify", "nuxt", "sveltekit", "astro", "angular"].some((id) =>
+			fw.has(id),
+		)
+	) {
 		all.push(...detectRemixFileRoutes(repo));
 		all.push(...detectJsxRoutes(repo));
 	}

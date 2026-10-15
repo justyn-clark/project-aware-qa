@@ -4,13 +4,13 @@
  * Parses the Phoenix surface area the same way the Node adapter parses React Router/NestJS,
  * emitting the shared DetectionBundle so the language-agnostic inference (entity-correlated
  * CRUD flows, risk, reports) works unchanged:
- *  - router.ex  → routes (live) + endpoints (verbs + `resources` expansion), with nested
+ *  - router.ex  -> routes (live) + endpoints (verbs + `resources` expansion), with nested
  *                 `scope` prefixes and `pipe_through` auth/admin awareness
- *  - *_controller.ex → handler/action files (endpoint evidence)
- *  - Ecto schemas/changesets → DTOs (fields + cast allow-list)
- *  - HEEx/EEx `<.form>` / `<form>` → forms (field names)
- *  - Cachex / ETS / persistent_term → cache signals
- *  - *_test.exs → tests
+ *  - *_controller.ex -> handler/action files (endpoint evidence)
+ *  - Ecto schemas/changesets -> DTOs (fields + cast allow-list)
+ *  - HEEx/EEx `<.form>` / `<form>` -> forms (field names)
+ *  - Cachex / ETS / persistent_term -> cache signals
+ *  - *_test.exs -> tests
  */
 import { entityFromControllerPrefix, entityFromSegments } from "../detectors/entities.js";
 import type {

@@ -1,6 +1,6 @@
 #!/usr/bin/env -S npx tsx
 /**
- * /qa-report — aggregate the registry + verification status into qa-report.md.
+ * /qa-report - aggregate the registry + verification status into qa-report.md.
  *
  * Usage: tsx scripts/report.ts [targetDir]
  */

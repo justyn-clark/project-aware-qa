@@ -1,8 +1,8 @@
 /**
  * Verification orchestration (Phase 6 + 7).
  *
- * Runs the safe-check ladder — registry validation, install check, typecheck, lint,
- * tests, targeted route probes, screenshots — honouring brakes (install + full test run
+ * Runs the safe-check ladder - registry validation, install check, typecheck, lint,
+ * tests, targeted route probes, screenshots - honouring brakes (install + full test run
  * + screenshots are opt-in). Every executed command writes a full log under its run's
  * `.qa/runs/<id>/findings/` directory and every result carries either evidence or a skip reason, so the
  * report can never claim "done" without backing.
@@ -185,7 +185,7 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 			id: "registry",
 			title: "Surface registry present & valid",
 			status: "skipped",
-			reason: "No .qa/surface-registry.json — run /qa-scan first",
+			reason: "No .qa/surface-registry.json - run /qa-scan first",
 		});
 	} else {
 		const { valid, errors } = validateRegistry(registry);
@@ -208,12 +208,12 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 			id: "change-selection",
 			title: "Change-aware verification selection",
 			status: "passed",
-			summary: `${selection.changedFiles.length} changed files · ${selection.stackRoots.length} stacks · ${selection.surfaceIds.length} directly affected surfaces`,
+			summary: `${selection.changedFiles.length} changed files | ${selection.stackRoots.length} stacks | ${selection.surfaceIds.length} directly affected surfaces`,
 			evidencePath: selectionPath,
 		});
 	}
 
-	// 2-5. Per-stack check ladder: deps/install → typecheck → lint → tests. Each stack runs
+	// 2-5. Per-stack check ladder: deps/install -> typecheck -> lint -> tests. Each stack runs
 	// its own commands in its own subdir (monorepo-aware); brakes are honoured per stack.
 	const selectedStacks = selection
 		? project.stacks.filter((stack) => selection?.stackRoots.includes(stack.rootRel))
@@ -381,7 +381,7 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 					? selection
 						? "No renderable routes selected for this change/service scope"
 						: "No renderable routes selected for this scope"
-					: "No registry — run /qa-scan",
+					: "No registry - run /qa-scan",
 			});
 		} else if (devCheck?.status === "failed") {
 			checks.push({
@@ -541,7 +541,7 @@ function stackDeps(stack: StackInfo, root: string): { ready: boolean; install?: 
 		return { ready: existsSync(join(cwd, "vendor/bundle")) || true, install: "bundle install" };
 	if (pm === "cargo") return { ready: true, install: "cargo fetch" };
 	if (pm === "pip") return { ready: true, install: "pip install -r requirements.txt" };
-	// go/gradle/maven/dotnet/etc. fetch on demand — assume ready, command captures failures.
+	// go/gradle/maven/dotnet/etc. fetch on demand - assume ready, command captures failures.
 	return { ready: true };
 }
 
@@ -612,7 +612,7 @@ async function runStackLadder(
 			title: `Dependencies${tag}`,
 			status: "skipped",
 			reason: install
-				? `Not installed — gated. Re-run with install enabled to execute \`${install}\`.`
+				? `Not installed - gated. Re-run with install enabled to execute \`${install}\`.`
 				: "Dependency state unknown for this stack",
 		});
 	}
@@ -651,7 +651,7 @@ async function runStackLadder(
 		}
 	}
 
-	// Tests (gated brake — long running).
+	// Tests (gated brake - long running).
 	const test = stack.checks.test;
 	const testTitle = `Tests${tag}`;
 	if (!test) {

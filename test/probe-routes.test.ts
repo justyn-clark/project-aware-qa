@@ -67,31 +67,31 @@ test("probeRoutes: 200 ok, 302 ok, 404/500 reachable-but-not-ok, 401 auth", asyn
 	}
 });
 
-test("probeRoutes: connection refused → unreachable, not ok", async () => {
+test("probeRoutes: connection refused -> unreachable, not ok", async () => {
 	const probes = await probeRoutes("http://127.0.0.1:1", ["/x"], 1500);
 	assert.equal(probes[0]?.reachable, false);
 	assert.equal(probes[0]?.ok, false);
 	assert.equal(classifyProbe(probes[0] as RouteProbe), "unreachable");
 });
 
-test("summarizeRouteProbes: all 200 → passed", () => {
+test("summarizeRouteProbes: all 200 -> passed", () => {
 	const v = summarizeRouteProbes([mk("/a", 200), mk("/b", 200)], "http://x");
 	assert.equal(v.status, "passed");
 	assert.equal(v.counts.ok, 2);
 });
 
-test("summarizeRouteProbes: any 404 → failed (partial = failed)", () => {
+test("summarizeRouteProbes: any 404 -> failed (partial = failed)", () => {
 	const v = summarizeRouteProbes([mk("/a", 200), mk("/b", 404)], "http://x");
 	assert.equal(v.status, "failed");
 	assert.match(v.summary ?? "", /broken/);
 });
 
-test("summarizeRouteProbes: 500 → failed", () => {
+test("summarizeRouteProbes: 500 -> failed", () => {
 	const v = summarizeRouteProbes([mk("/a", 500)], "http://x");
 	assert.equal(v.status, "failed");
 });
 
-test("summarizeRouteProbes: none reachable → skipped (server down)", () => {
+test("summarizeRouteProbes: none reachable -> skipped (server down)", () => {
 	const v = summarizeRouteProbes([mk("/a", null), mk("/b", null)], "http://x");
 	assert.equal(v.status, "skipped");
 });
@@ -102,7 +102,7 @@ test("summarizeRouteProbes: auth-gated is a soft pass with a note", () => {
 	assert.match(v.summary ?? "", /auth-gated/);
 });
 
-test("summarizeRouteProbes: some reachable + some unreachable → failed", () => {
+test("summarizeRouteProbes: some reachable + some unreachable -> failed", () => {
 	const v = summarizeRouteProbes([mk("/a", 200), mk("/b", null)], "http://x");
 	assert.equal(v.status, "failed");
 	assert.match(v.summary ?? "", /unreachable/);

@@ -1,5 +1,5 @@
 /**
- * C# / .NET deep adapter — ASP.NET Core minimal APIs and MVC controllers.
+ * C# / .NET deep adapter - ASP.NET Core minimal APIs and MVC controllers.
  *
  *  - minimal:    `app.MapGet("/path", handler)`, `var g = app.MapGroup("/api")`
  *  - controllers:`[ApiController] [Route("api/[controller]")]` + `[HttpGet("{id}")]` /
@@ -19,7 +19,7 @@ function inDir(rootRel: string, path: string): boolean {
 	return rootRel === "" ? true : path === rootRel || path.startsWith(`${rootRel}/`);
 }
 function join(prefix: string, sub: string): string {
-	// `[Route("api/[controller]")]` has no leading slash — anchor at "/".
+	// `[Route("api/[controller]")]` has no leading slash - anchor at "/".
 	const a = `/${prefix.replace(/^\/+|\/+$/g, "")}`;
 	const b = sub === "" ? "" : sub.startsWith("/") ? sub : `/${sub}`;
 	return `${a}${b}`.replace(/\/+/g, "/").replace(/(.)\/$/, "$1") || "/";
@@ -196,7 +196,7 @@ export const csharpAdapter: StackAdapter = {
 		if (dirs.size === 0 && repo.files.some((f) => f.ext === ".cs")) dirs.add("");
 		const matches: StackMatch[] = [];
 		for (const dir of dirs) {
-			if (!isAspNet(repo, dir)) continue; // plain .NET → generic
+			if (!isAspNet(repo, dir)) continue; // plain .NET -> generic
 			matches.push({
 				adapter: "csharp",
 				rootRel: dir,

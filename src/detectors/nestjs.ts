@@ -78,8 +78,7 @@ export function detectControllers(repo: RepoFiles): EndpointInfo[] {
 				signature,
 			);
 			const upper = methodName.toUpperCase();
-			const httpMethod: HttpMethod =
-				upper === "HEAD" || upper === "OPTIONS" ? "GET" : (upper as HttpMethod);
+			const httpMethod: HttpMethod = upper as HttpMethod;
 			endpoints.push({
 				method: httpMethod,
 				path: joinPaths(prefix, sub),

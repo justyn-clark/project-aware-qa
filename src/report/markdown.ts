@@ -8,7 +8,11 @@ import type { ScanResult } from "../scanner/index.js";
 import { matchesScope } from "../scope.js";
 import type { Risk, Surface, SurfaceRegistry } from "../types.js";
 
-const RISK_BADGE: Record<Risk, string> = { high: "🔴 high", medium: "🟠 medium", low: "🟢 low" };
+const RISK_BADGE: Record<Risk, string> = {
+	high: "HIGH",
+	medium: "MEDIUM",
+	low: "LOW",
+};
 const CRUD_OPS: CrudOp[] = ["create", "read", "list", "update", "delete"];
 
 function esc(s: string): string {
@@ -21,7 +25,7 @@ function table(headers: string[], rows: string[][]): string {
 	const body = rows.map((r) => `| ${r.map((c) => esc(c)).join(" | ")} |`).join("\n");
 	return rows.length
 		? `${head}\n${sep}\n${body}`
-		: `${head}\n${sep}\n| ${headers.map(() => "—").join(" | ")} |`;
+		: `${head}\n${sep}\n| ${headers.map(() => "-").join(" | ")} |`;
 }
 
 function countBy<T>(items: T[], key: (t: T) => string): Record<string, number> {
@@ -48,14 +52,14 @@ export function renderScanReport(result: ScanResult): string {
 		table(
 			["Property", "Value"],
 			[
-				["Name", project.name ?? "—"],
+				["Name", project.name ?? "-"],
 				[
 					"Stacks",
 					project.stacks.map((s) => `${s.label}${s.rootRel ? ` @${s.rootRel}` : ""}`).join(", ") ||
-						"—",
+						"-",
 				],
-				["Frameworks", project.frameworks.join(", ") || "—"],
-				["Test runners", project.testRunners.join(", ") || "—"],
+				["Frameworks", project.frameworks.join(", ") || "-"],
+				["Test runners", project.testRunners.join(", ") || "-"],
 				["Build files", String(project.packageJsonPaths.length)],
 				[
 					"Files scanned",
@@ -77,7 +81,7 @@ export function renderScanReport(result: ScanResult): string {
 				["Check", "Command"],
 				(["typecheck", "lint", "test", "build", "dev"] as const).map((k) => [
 					k,
-					c[k] ? `\`${c[k]?.command}\`` : "— (none found)",
+					c[k] ? `\`${c[k]?.command}\`` : "- (none found)",
 				]),
 			),
 		);
@@ -145,18 +149,18 @@ export function renderCrudMatrix(flows: CrudFlow[], registry: SurfaceRegistry): 
 	const lines: string[] = [];
 	lines.push(header("CRUD / Admin Matrix", registry.generatedAt, registry.project.root));
 	lines.push(
-		"\nEntities inferred from routes, controllers, forms and DTOs. ✓ = handler/route detected for that operation.\n",
+		"\nEntities inferred from routes, controllers, forms and DTOs. yes = handler/route detected for that operation.\n",
 	);
 
 	const rows = flows.map((f) => {
-		const ops = CRUD_OPS.map((op) => (f.operations[op] ? "✓" : "·"));
+		const ops = CRUD_OPS.map((op) => (f.operations[op] ? "yes" : "-"));
 		const tests = registry.surfaces.find((s) => s.type === "crud-flow" && s.entity === f.entity);
 		return [
-			f.entity + (f.isAdmin ? " 🛠" : ""),
+			f.entity + (f.isAdmin ? " [ADMIN]" : ""),
 			...ops,
 			String(f.forms.length),
 			String(f.dtos.length),
-			tests ? RISK_BADGE[tests.risk] : "—",
+			tests ? RISK_BADGE[tests.risk] : "-",
 		];
 	});
 	lines.push(table(["Entity", "C", "R", "L", "U", "D", "Forms", "DTOs", "Risk"], rows));
@@ -168,7 +172,7 @@ export function renderCrudMatrix(flows: CrudFlow[], registry: SurfaceRegistry): 
 			lines.push("**Routes**");
 			for (const r of f.routes.slice(0, 12)) {
 				lines.push(
-					`- \`${r.routePath}\`${r.hasLoader ? " ·loader" : ""}${r.hasAction ? " ·action" : ""} — \`${r.file}\``,
+					`- \`${r.routePath}\`${r.hasLoader ? " |loader" : ""}${r.hasAction ? " |action" : ""} - \`${r.file}\``,
 				);
 			}
 		}
@@ -176,24 +180,24 @@ export function renderCrudMatrix(flows: CrudFlow[], registry: SurfaceRegistry): 
 			lines.push("\n**Endpoints**");
 			for (const e of f.endpoints.slice(0, 16)) {
 				lines.push(
-					`- \`${e.method} ${e.path}\` → \`${e.controller}.${e.handler}\`${e.bodyDto ? ` (body: ${e.bodyDto})` : ""}`,
+					`- \`${e.method} ${e.path}\` -> \`${e.controller}.${e.handler}\`${e.bodyDto ? ` (body: ${e.bodyDto})` : ""}`,
 				);
 			}
 		}
 		for (const l of f.formEndpointLinks) {
 			lines.push(
-				`\n**Form** \`${l.form.file}\` → ${l.endpoint ? `\`${l.endpoint.method} ${l.endpoint.path}\`` : "_no matched endpoint_"}`,
+				`\n**Form** \`${l.form.file}\` -> ${l.endpoint ? `\`${l.endpoint.method} ${l.endpoint.path}\`` : "_no matched endpoint_"}`,
 			);
-			lines.push(`- fields: ${l.form.fields.join(", ") || "—"}`);
+			lines.push(`- fields: ${l.form.fields.join(", ") || "-"}`);
 			if (l.missingDtoFields.length)
-				lines.push(`- ⚠ missing required DTO fields: ${l.missingDtoFields.join(", ")}`);
+				lines.push(`- [WARN] missing required DTO fields: ${l.missingDtoFields.join(", ")}`);
 			if (l.unmatchedFormFields.length)
-				lines.push(`- ⚠ form fields absent from DTO: ${l.unmatchedFormFields.join(", ")}`);
+				lines.push(`- [WARN] form fields absent from DTO: ${l.unmatchedFormFields.join(", ")}`);
 		}
 		const stale = f.mutationLinks.filter((m) => m.staleRisk);
 		if (stale.length) {
-			lines.push("\n**⚠ Mutations without detected cache invalidation**");
-			for (const m of stale) lines.push(`- ${m.mutation} — \`${m.file}:${m.line}\``);
+			lines.push("\n**[WARN] Mutations without detected cache invalidation**");
+			for (const m of stale) lines.push(`- ${m.mutation} - \`${m.file}:${m.line}\``);
 		}
 	}
 	lines.push("");
@@ -209,7 +213,7 @@ export function renderRiskReport(registry: SurfaceRegistry): string {
 	lines.push(header("QA Risk Report", registry.generatedAt, registry.project.root));
 	const { high, medium, low } = registry.stats.byRisk;
 	lines.push(
-		`\n**${high} high · ${medium} medium · ${low} low** across ${registry.surfaces.length} surfaces.\n`,
+		`\n**${high} high | ${medium} medium | ${low} low** across ${registry.surfaces.length} surfaces.\n`,
 	);
 
 	for (const level of ["high", "medium", "low"] as Risk[]) {
@@ -225,14 +229,14 @@ export function renderRiskReport(registry: SurfaceRegistry): string {
 						String(s.riskScore),
 						s.type,
 						s.title.slice(0, 60),
-						s.entity ?? "—",
-						(s.riskReasons[0] ?? "—").replace(/\s*\(\+\d+\)$/, ""),
+						s.entity ?? "-",
+						(s.riskReasons[0] ?? "-").replace(/\s*\(\+\d+\)$/, ""),
 					]),
 			),
 		);
 		if (group.length > (level === "high" ? 200 : 60)) {
 			lines.push(
-				`\n_…and ${group.length - (level === "high" ? 200 : 60)} more (see surface-registry.json)._`,
+				`\n_...and ${group.length - (level === "high" ? 200 : 60)} more (see surface-registry.json)._`,
 			);
 		}
 	}
@@ -255,14 +259,14 @@ function planStepsForSurface(s: Surface): string[] {
 	for (const t of s.inferredTests) {
 		const mark =
 			t.status === "present"
-				? "↺ (has test)"
+				? "[RETRY] (has test)"
 				: t.status === "unknown"
 					? "? (related test; coverage unverified)"
-					: "☐ (no related test found)";
+					: "[ ] (no related test found)";
 		steps.push(`- ${mark} **${t.kind}**: ${t.description}`);
 	}
 	if (s.gaps.length) {
-		for (const g of s.gaps.slice(0, 4)) steps.push(`  - ⚠ ${g}`);
+		for (const g of s.gaps.slice(0, 4)) steps.push(`  - [WARN] ${g}`);
 	}
 	return steps;
 }
@@ -281,7 +285,7 @@ export function renderTestPlan(registry: SurfaceRegistry, options: PlanOptions =
 	if (scope) lines.push(`\n_Scope: \`${scope}\`_\n`);
 	lines.push(
 		"\nThis plan states what to test for each surface **regardless of whether a test currently exists**.\n" +
-			"Depth scales with risk: high → full runtime; medium → route/API + basic UI; low → smoke.\n",
+			"Depth scales with risk: high -> full runtime; medium -> route/API + basic UI; low -> smoke.\n",
 	);
 
 	const selected = registry.surfaces.filter((s) => (scope ? matchesScope(s, scope) : true));
@@ -310,7 +314,7 @@ export function renderTestPlan(registry: SurfaceRegistry, options: PlanOptions =
 	for (const level of ["high", "medium", "low"] as Risk[]) {
 		const group = selected.filter((s) => s.risk === level);
 		if (!group.length) continue;
-		lines.push(`\n## ${RISK_BADGE[level]} — depth: ${DEPTH_BY_RISK[level]} (${group.length})\n`);
+		lines.push(`\n## ${RISK_BADGE[level]} - depth: ${DEPTH_BY_RISK[level]} (${group.length})\n`);
 		for (const s of group.slice(0, limit)) {
 			lines.push(`\n### ${s.title}`);
 			const meta = [
@@ -320,7 +324,7 @@ export function renderTestPlan(registry: SurfaceRegistry, options: PlanOptions =
 				s.backendEndpoint ? `endpoint: \`${s.backendEndpoint}\`` : "",
 				`score: ${s.riskScore}`,
 			].filter(Boolean);
-			lines.push(`_${meta.join(" · ")}_`);
+			lines.push(`_${meta.join(" | ")}_`);
 			lines.push(
 				`files: ${s.files
 					.slice(0, 5)
@@ -330,7 +334,9 @@ export function renderTestPlan(registry: SurfaceRegistry, options: PlanOptions =
 			lines.push(...planStepsForSurface(s));
 		}
 		if (group.length > limit)
-			lines.push(`\n_…and ${group.length - limit} more ${level} surfaces (filter with a scope)._`);
+			lines.push(
+				`\n_...and ${group.length - limit} more ${level} surfaces (filter with a scope)._`,
+			);
 	}
 	lines.push("");
 	return lines.join("\n");

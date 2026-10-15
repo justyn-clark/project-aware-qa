@@ -3,8 +3,8 @@
  *
  * Additive, explainable scoring: each contributing factor adds points and a reason
  * string, so every risk level can be justified in the report. The thresholds map to the
- * plan's depth tiers (high → full runtime+form+API+cache+screenshots, medium →
- * route/API/basic UI, low → smoke only).
+ * plan's depth tiers (high -> full runtime+form+API+cache+screenshots, medium ->
+ * route/API/basic UI, low -> smoke only).
  */
 import type { Risk, SurfaceType } from "../types.js";
 

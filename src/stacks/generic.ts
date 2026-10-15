@@ -2,7 +2,7 @@
  * Generic, any-language fallback adapter.
  *
  * For stacks without a deep adapter (Go, Rust, Zig, Python, Ruby, Java, C#, C/C++, Godot,
- * Elixir-without-Phoenix, …) this gives a real baseline instead of "0 files / valid ✅":
+ * Elixir-without-Phoenix, ...) this gives a real baseline instead of "0 files / valid [PASS]":
  * it identifies the project type from its build file (or dominant source extension), maps
  * best-effort runnable checks (build/test/lint), counts tests, and emits a test-gap
  * surface. The verifier runs the checks (gated); no deep route/form parsing here.
@@ -147,7 +147,7 @@ const LANG_SPECS: LangSpec[] = [
 		label: "C / C++",
 		language: "c-cpp",
 		packageManager: "make",
-		// A Makefile is a weak signal — language manifests (mix.exs, go.mod, …) outrank it.
+		// A Makefile is a weak signal - language manifests (mix.exs, go.mod, ...) outrank it.
 		priority: 30,
 		markers: ["CMakeLists.txt", "Makefile", "makefile", "meson.build"],
 		exts: [".c", ".h", ".cc", ".cpp", ".cxx", ".hpp", ".hh"],
@@ -207,7 +207,7 @@ function dominantByExtension(repo: RepoFiles): LangSpec | undefined {
 		const n = spec.exts.reduce((sum, e) => sum + (counts.get(e) ?? 0), 0);
 		if (n > 0 && (!best || n > best.n)) best = { spec, n };
 	}
-	// Extension-only languages without a marker manifest (Odin, Swift, …) get real checks.
+	// Extension-only languages without a marker manifest (Odin, Swift, ...) get real checks.
 	const extraLangs: Array<{
 		ext: string;
 		id: string;
@@ -353,7 +353,7 @@ export const genericAdapter: StackAdapter = {
 				byDir.set(dir, { spec, label: spec.label });
 		}
 		if (byDir.size === 0) {
-			// No recognized build file — fall back to the dominant source language.
+			// No recognized build file - fall back to the dominant source language.
 			const spec = dominantByExtension(repo);
 			if (spec) return [{ adapter: "generic", rootRel: "", label: spec.label, confidence: 20 }];
 			return [];
@@ -370,7 +370,7 @@ export const genericAdapter: StackAdapter = {
 		const name = match.label;
 		const spec = LANG_SPECS.find((l) => l.label === name) ?? dominantByExtension(repo);
 		if (!spec) {
-			// Unknown — emit a minimal stack so the report still says something honest.
+			// Unknown - emit a minimal stack so the report still says something honest.
 			const stack: StackInfo = {
 				adapter: "generic",
 				label: match.label || "Unknown",

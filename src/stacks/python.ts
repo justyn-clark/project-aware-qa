@@ -1,8 +1,8 @@
 /**
- * Python deep adapter — FastAPI, Flask, and Django.
+ * Python deep adapter - FastAPI, Flask, and Django.
  *
  * Emits the shared DetectionBundle so the language-agnostic inference works unchanged:
- *  - FastAPI/Flask: decorator routes (`@router.get("/{id}")`, `@app.route(..., methods=…)`)
+ *  - FastAPI/Flask: decorator routes (`@router.get("/{id}")`, `@app.route(..., methods=...)`)
  *    with APIRouter/Blueprint prefixes and Pydantic body types
  *  - Django: `urls.py` `path(...)`, DRF `router.register` (REST expansion), and
  *    `@admin.register` / `admin.site.register` (admin CRUD per model)
@@ -37,7 +37,7 @@ function join(prefix: string, sub: string): string {
 	const b = sub === "" ? "" : sub.startsWith("/") ? sub : `/${sub}`;
 	return `${a}${b}`.replace(/\/+/g, "/").replace(/(.)\/$/, "$1") || "/";
 }
-/** FastAPI/Flask `{id}` and Django/regex params → our `:id` convention. */
+/** FastAPI/Flask `{id}` and Django/regex params -> our `:id` convention. */
 function normParams(path: string): string {
 	return path
 		.replace(/\{([A-Za-z0-9_]+)(?::[^}]+)?\}/g, ":$1")
@@ -463,7 +463,7 @@ export const pythonAdapter: StackAdapter = {
 		const matches: StackMatch[] = [];
 		for (const dir of dirs) {
 			const fw = detectFrameworks(repo, dir);
-			if (fw.size === 0) continue; // plain Python → generic adapter handles it
+			if (fw.size === 0) continue; // plain Python -> generic adapter handles it
 			matches.push({ adapter: "python", rootRel: dir, label: label(fw), confidence: 85 });
 		}
 		// No marker matched a framework (e.g. the build file lives in a parent dir): fall back

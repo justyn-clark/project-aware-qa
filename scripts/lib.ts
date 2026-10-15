@@ -47,7 +47,7 @@ export function printResult(title: string, result: StepResult, json = false): vo
 		process.exitCode = result.ok ? 0 : 1;
 		return;
 	}
-	const icon = result.outcome === "incomplete" ? "⚠️" : result.ok ? "✅" : "❌";
+	const icon = result.outcome === "incomplete" ? "[WARN]" : result.ok ? "[PASS]" : "[FAIL]";
 	const label = result.outcome === "incomplete" ? `${title} (incomplete)` : title;
 	process.stdout.write(`\n${icon} ${label}\n${result.summary}\n`);
 	if (result.writtenFiles.length) {

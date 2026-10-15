@@ -21,7 +21,7 @@ export type SurfaceType = (typeof SURFACE_TYPES)[number];
 export const RISK_LEVELS = ["high", "medium", "low"] as const;
 export type Risk = (typeof RISK_LEVELS)[number];
 
-export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "ALL";
+export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS" | "ALL";
 
 /** A single piece of evidence backing a surface or finding. */
 export interface EvidenceItem {
@@ -97,7 +97,7 @@ export type CheckKind = "typecheck" | "lint" | "test" | "build" | "dev";
 export type StackChecks = Partial<Record<CheckKind, CheckCommand>>;
 
 /**
- * A single technology stack detected in the repo (a repo may contain several — e.g. a
+ * A single technology stack detected in the repo (a repo may contain several - e.g. a
  * Node frontend + a Phoenix backend in a monorepo). Produced by a StackAdapter.
  */
 export interface StackInfo {
@@ -130,7 +130,7 @@ export interface ProjectInfo {
 	/** Primary stack's build-file scripts. */
 	scripts: Record<string, string>;
 	testRunners: string[];
-	/** Repo-relative build-file paths discovered (package.json, mix.exs, go.mod, …). */
+	/** Repo-relative build-file paths discovered (package.json, mix.exs, go.mod, ...). */
 	packageJsonPaths: string[];
 	dependencies: Record<string, string>;
 	/** Every detected stack (length 1 for a single-language repo). */

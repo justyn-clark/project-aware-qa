@@ -1,8 +1,8 @@
 /**
- * Java/JVM deep adapter — Spring (Boot/MVC/WebFlux) and JAX-RS.
+ * Java/JVM deep adapter - Spring (Boot/MVC/WebFlux) and JAX-RS.
  *
  *  - Spring:  `@RestController` + class `@RequestMapping("/base")` + method
- *             `@GetMapping("/x")` / `@PostMapping` / `@RequestMapping(method=…)`,
+ *             `@GetMapping("/x")` / `@PostMapping` / `@RequestMapping(method=...)`,
  *             with `@RequestBody Dto` body types
  *  - JAX-RS:  `@Path("/base")` class + `@GET`/`@POST` + method `@Path("/x")`
  *  - DTOs:    records `record CreateUser(String name)` and *Request/*Dto/*Response classes
@@ -191,7 +191,7 @@ export const javaAdapter: StackAdapter = {
 			const build = readFileCached(f.abs) ?? "";
 			const web =
 				/spring-boot|springframework|jakarta\.ws\.rs|javax\.ws\.rs|micronaut|quarkus/.test(build);
-			if (!web) continue; // plain JVM build → generic
+			if (!web) continue; // plain JVM build -> generic
 			seen.add(dir);
 			matches.push({ adapter: "java", rootRel: dir, label: "Java / Spring", confidence: 85 });
 		}

@@ -98,9 +98,9 @@ export function runScan(
 
 		const { high, medium, low } = scan.registry.stats.byRisk;
 		const summary =
-			`Scanned ${scan.registry.stats.scannedFiles} files · ${scan.registry.surfaces.length} surfaces ` +
-			`(${high} high / ${medium} medium / ${low} low) · ${scan.flows.length} CRUD flows. ` +
-			`Registry ${valid ? "valid ✅" : `INVALID ❌ (${errors.length} errors)`}.` +
+			`Scanned ${scan.registry.stats.scannedFiles} files | ${scan.registry.surfaces.length} surfaces ` +
+			`(${high} high / ${medium} medium / ${low} low) | ${scan.flows.length} CRUD flows. ` +
+			`Registry ${valid ? "valid [PASS]" : `INVALID [FAIL] (${errors.length} errors)`}.` +
 			(scan.registry.provenance.complete
 				? ""
 				: ` Source snapshot incomplete: ${after.issues?.join("; ") || "inputs changed or discovery was truncated"}.`);
@@ -129,7 +129,7 @@ export function runPlan(root: string, options: { scope?: string } = {}): StepRes
 	if (!registry) {
 		return {
 			ok: false,
-			summary: "No surface registry found — run /qa-scan first.",
+			summary: "No surface registry found - run /qa-scan first.",
 			writtenFiles: [],
 			error: "missing .qa/surface-registry.json",
 		};
@@ -236,7 +236,7 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyStepResul
 	if (!registryExists(root)) {
 		return preflightFailure(
 			options,
-			"No surface registry found — run /qa-scan first. Missing .qa/surface-registry.json",
+			"No surface registry found - run /qa-scan first. Missing .qa/surface-registry.json",
 		);
 	}
 	try {
@@ -340,11 +340,11 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyStepResul
 		const failed = verify.checks.filter((c) => c.status === "failed").length;
 		const skipped = verify.checks.filter((c) => c.status === "skipped").length;
 		const inconclusive = verify.checks.filter((c) => c.status === "inconclusive").length;
-		const incBit = inconclusive ? ` · ${inconclusive} inconclusive` : "";
+		const incBit = inconclusive ? ` | ${inconclusive} inconclusive` : "";
 		return {
 			ok: failed === 0,
 			outcome: failed ? "failed" : skipped || inconclusive ? "incomplete" : "passed",
-			summary: `Verification: ${passed} passed · ${failed} failed · ${skipped} skipped${incBit}. Evidence in .qa/${prefix}/.`,
+			summary: `Verification: ${passed} passed | ${failed} failed | ${skipped} skipped${incBit}. Evidence in .qa/${prefix}/.`,
 			writtenFiles: [file, qaPath(root, "verification.json"), archived, json, ...machineFiles],
 			verify,
 		};
@@ -362,7 +362,7 @@ export function runReport(root: string): StepResult {
 	if (!registry) {
 		return {
 			ok: false,
-			summary: "No surface registry found — run /qa-scan first.",
+			summary: "No surface registry found - run /qa-scan first.",
 			writtenFiles: [],
 			error: "missing .qa/surface-registry.json",
 		};

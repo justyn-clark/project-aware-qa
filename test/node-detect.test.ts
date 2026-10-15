@@ -13,7 +13,7 @@ function tmp(): string {
 	return mkdtempSync(join(tmpdir(), "qa-node-"));
 }
 
-test("assets-only package.json (no frameworks, no scripts) → no Node stack", () => {
+test("assets-only package.json (no frameworks, no scripts) -> no Node stack", () => {
 	const dir = tmp();
 	writeFileSync(
 		join(dir, "package.json"),
@@ -25,7 +25,7 @@ test("assets-only package.json (no frameworks, no scripts) → no Node stack", (
 	assert.ok(!s.project.stacks.some((st) => st.adapter === "node"), "no Node stack for assets-only");
 });
 
-test("package.json with a real script → Node stack present", () => {
+test("package.json with a real script -> Node stack present", () => {
 	const dir = tmp();
 	writeFileSync(
 		join(dir, "package.json"),
@@ -38,7 +38,7 @@ test("package.json with a real script → Node stack present", () => {
 	assert.equal(node?.checks.build?.command, "npm run --silent build");
 });
 
-test("package.json with a framework dep → Node stack present", () => {
+test("package.json with a framework dep -> Node stack present", () => {
 	const dir = tmp();
 	writeFileSync(
 		join(dir, "package.json"),
@@ -47,6 +47,6 @@ test("package.json with a framework dep → Node stack present", () => {
 	const s = scanRepo(dir);
 	assert.ok(
 		s.project.stacks.some((st) => st.adapter === "node"),
-		"framework → Node stack",
+		"framework -> Node stack",
 	);
 });

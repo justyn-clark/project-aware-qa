@@ -3,7 +3,7 @@
  *
  * We classify test files and infer their subjects (from filename and imports) so the
  * report can show related test files. Filename/import matches do not establish whether
- * a behavior is tested, asserted, enabled, or passing — that requires separate evidence.
+ * a behavior is tested, asserted, enabled, or passing - that requires separate evidence.
  */
 import type { RepoFiles } from "../scanner/files.js";
 import { readFileCached } from "../scanner/files.js";
@@ -29,7 +29,7 @@ function inferKind(file: string, runner: TestInfo["runner"]): TestInfo["kind"] {
 
 function inferTargets(file: string, content: string): string[] {
 	const targets = new Set<string>();
-	// Subject from the test filename ("album.controller.spec.ts" → "album controller").
+	// Subject from the test filename ("album.controller.spec.ts" -> "album controller").
 	const base = file.split("/").pop() ?? file;
 	for (const w of words(base)) targets.add(w);
 	// Subjects from relative imports of the unit under test.

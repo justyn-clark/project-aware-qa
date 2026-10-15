@@ -1,5 +1,5 @@
 /**
- * project-aware-qa — Pi extension entrypoint.
+ * project-aware-qa - Pi extension entrypoint.
  *
  * Registers the four QA commands. Each runs the corresponding workflow step against the
  * current working directory, writes `.qa/*` artifacts, and surfaces a markdown summary
@@ -29,7 +29,7 @@ function surface(
 	result: StepResult,
 ): void {
 	const incomplete = result.outcome === "incomplete";
-	const icon = incomplete ? "⚠️" : result.ok ? "✅" : "❌";
+	const icon = incomplete ? "[WARN]" : result.ok ? "[PASS]" : "[FAIL]";
 	const label = incomplete ? `${title} (incomplete)` : title;
 	const files = result.writtenFiles.map((f) => `- \`${f}\``).join("\n");
 	const content =
@@ -70,8 +70,8 @@ export default function projectAwareQaExtension(pi: ExtensionAPI): void {
 		handler: async (raw, ctx) => {
 			const args = parseCommandArgs(pi, ctx, "scan", raw);
 			if (!args) return;
-			ctx.ui.setStatus("qa", "⏳ scanning…");
-			ctx.ui.setWorkingMessage("project-aware-qa: scanning repository…");
+			ctx.ui.setStatus("qa", "[WAIT] scanning...");
+			ctx.ui.setWorkingMessage("project-aware-qa: scanning repository...");
 			const result = runScan(ctx.cwd, {
 				maxFiles: args.maxFiles,
 				baseline: args.baseline,
@@ -88,7 +88,7 @@ export default function projectAwareQaExtension(pi: ExtensionAPI): void {
 			const args = parseCommandArgs(pi, ctx, "plan", raw);
 			if (!args) return;
 			const scope = args.scope;
-			ctx.ui.setStatus("qa", "⏳ planning…");
+			ctx.ui.setStatus("qa", "[WAIT] planning...");
 			const result = runPlan(ctx.cwd, { scope });
 			surface(pi, ctx, `qa-plan${scope ? ` ${scope}` : ""}`, result);
 		},
@@ -101,8 +101,8 @@ export default function projectAwareQaExtension(pi: ExtensionAPI): void {
 			const args = parseCommandArgs(pi, ctx, "verify", raw);
 			if (!args) return;
 			const flags = verifyFlags(args);
-			ctx.ui.setStatus("qa", "⏳ verifying…");
-			ctx.ui.setWorkingMessage("project-aware-qa: running checks…");
+			ctx.ui.setStatus("qa", "[WAIT] verifying...");
+			ctx.ui.setWorkingMessage("project-aware-qa: running checks...");
 			const result = await runVerify({ root: ctx.cwd, ...flags, signal: ctx.signal });
 			ctx.ui.setWorkingMessage();
 			surface(pi, ctx, "qa-verify", result);
@@ -113,7 +113,7 @@ export default function projectAwareQaExtension(pi: ExtensionAPI): void {
 		description: "Aggregate the registry + verification status into .qa/qa-report.md",
 		handler: async (raw, ctx) => {
 			if (!parseCommandArgs(pi, ctx, "report", raw)) return;
-			ctx.ui.setStatus("qa", "⏳ reporting…");
+			ctx.ui.setStatus("qa", "[WAIT] reporting...");
 			const result = runReport(ctx.cwd);
 			surface(pi, ctx, "qa-report", result);
 		},

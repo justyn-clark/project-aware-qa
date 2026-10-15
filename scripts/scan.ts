@@ -1,6 +1,6 @@
 #!/usr/bin/env -S npx tsx
 /**
- * /qa-scan — scan a repo, infer surfaces, and write the registry + scan/crud/risk reports.
+ * /qa-scan - scan a repo, infer surfaces, and write the registry + scan/crud/risk reports.
  *
  * Usage: tsx scripts/scan.ts [targetDir] [--max-files N]
  */

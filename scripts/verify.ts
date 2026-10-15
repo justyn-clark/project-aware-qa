@@ -1,6 +1,6 @@
 #!/usr/bin/env -S npx tsx
 /**
- * /qa-verify [scope] — run the safe-check ladder and write the evidence report.
+ * /qa-verify [scope] - run the safe-check ladder and write the evidence report.
  *
  * Usage:
  *   tsx scripts/verify.ts [targetDir] [--scope <s>] [--install] [--tests]

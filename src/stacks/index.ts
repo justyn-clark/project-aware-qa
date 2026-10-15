@@ -2,7 +2,7 @@
  * Stack adapter registry + multi-stack orchestration.
  *
  * Runs every deep adapter first, then the generic fallback only where no deep adapter
- * already claimed a location — so a Phoenix app gets the deep adapter, a plain Go module
+ * already claimed a location - so a Phoenix app gets the deep adapter, a plain Go module
  * gets the generic baseline, and a monorepo gets one stack per sub-project. Merges all
  * per-stack DetectionBundles and surfaces into the shape the registry builder expects.
  */
@@ -101,7 +101,7 @@ export function scanStacks(repo: RepoFiles): MultiStackScan {
 	}
 
 	// Drop empty stacks (e.g. an assets-only package.json next to a Phoenix/Django app):
-	// no frameworks, no runnable checks, and nothing detected — keep the report clean.
+	// no frameworks, no runnable checks, and nothing detected - keep the report clean.
 	const meaningful = scans.filter((s) => {
 		const b = s.bundle;
 		const contributed =

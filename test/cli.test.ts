@@ -38,7 +38,7 @@ test("CLI accepts spaced target paths and booleans before the target", () => {
 		assert.ok(existsSync(join(target, ".qa", "surface-registry.json")));
 		const verify = run("verify", ["--tests", target, "--timeout", "1000"], temp);
 		assert.equal(verify.status, 0, verify.stderr);
-		assert.match(verify.stdout, /⚠️ qa-verify .*\(incomplete\)/);
+		assert.match(verify.stdout, /\[WARN\] qa-verify .*\(incomplete\)/);
 		assert.ok(existsSync(join(target, ".qa", "verification-report.md")));
 		assert.equal(existsSync(join(temp, ".qa")), false, "must not execute against the caller's cwd");
 	} finally {
@@ -95,7 +95,7 @@ test("Pi fails closed on invalid arguments and labels incomplete verification", 
 		);
 		await commands.get("qa-scan")?.handler("", ctx);
 		await commands.get("qa-verify")?.handler("", ctx);
-		assert.match(messages.at(-1)?.content ?? "", /⚠️ \*\*qa-verify \(incomplete\)/);
+		assert.match(messages.at(-1)?.content ?? "", /\[WARN\] \*\*qa-verify \(incomplete\)/);
 		assert.equal(notifications.at(-1), "warning");
 	} finally {
 		rmSync(temp, { recursive: true, force: true });

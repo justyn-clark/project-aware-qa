@@ -79,7 +79,7 @@ public class ProductsController : ControllerBase
 	assert.ok(p.includes("GET /health"));
 	assert.ok(p.includes("GET /api/users"), "MapGroup prefix");
 	assert.ok(p.includes("POST /api/users"));
-	assert.ok(p.includes("GET /api/products"), "[controller] token → products");
+	assert.ok(p.includes("GET /api/products"), "[controller] token -> products");
 	assert.ok(p.includes("GET /api/products/:id"));
 	assert.equal(
 		eps.find((e) => e.path === "/api/products" && e.method === "POST")?.bodyDto,

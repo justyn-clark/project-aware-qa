@@ -1,6 +1,6 @@
 /**
  * Multi-stack adapters: generic marker-priority detection, the any-language fallback, and
- * Phoenix router parsing (scopes, pipelines, `resources` expansion, LiveView, auth → admin).
+ * Phoenix router parsing (scopes, pipelines, `resources` expansion, LiveView, auth -> admin).
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -43,7 +43,7 @@ test("generic detect: unknown build file falls back to dominant source extension
 	assert.equal(matches[0]?.label, "Odin");
 });
 
-test("generic scan: Elixir without Phoenix → baseline test-gap + mix checks", () => {
+test("generic scan: Elixir without Phoenix -> baseline test-gap + mix checks", () => {
 	const r = repo(["mix.exs", "lib/a.ex", "lib/b.ex", "test/a_test.exs"]);
 	const match = genericAdapter.detect(r)[0];
 	if (!match) throw new Error("expected a generic stack match");
@@ -80,11 +80,11 @@ end
 test("phoenix parseRouter: verbs, live, and resources expansion", () => {
 	const { routes, endpoints } = parseRouter("router.ex", ROUTER, new Map());
 
-	// GET "/" → a page route; live "/dashboard" → a live route.
+	// GET "/" -> a page route; live "/dashboard" -> a live route.
 	assert.ok(routes.some((r) => r.routePath === "/" && r.kind === "phoenix-router"));
 	assert.ok(routes.some((r) => r.routePath === "/dashboard" && r.kind === "phoenix-live"));
 
-	// resources "/users" except new/edit → index/create/show/update/delete (5), not new/edit.
+	// resources "/users" except new/edit -> index/create/show/update/delete (5), not new/edit.
 	const userPaths = endpoints
 		.filter((e) => e.controller === "UsersController")
 		.map((e) => `${e.method} ${e.path}`);
@@ -95,7 +95,7 @@ test("phoenix parseRouter: verbs, live, and resources expansion", () => {
 	assert.ok(!userPaths.some((p) => p.endsWith("/edit")));
 });
 
-test("phoenix parseRouter: nested scope prefixes + auth pipeline → admin", () => {
+test("phoenix parseRouter: nested scope prefixes + auth pipeline -> admin", () => {
 	const { endpoints } = parseRouter("router.ex", ROUTER, new Map());
 	const track = endpoints.find((e) => e.controller === "TrackController" && e.method === "POST");
 	assert.equal(track?.path, "/admin/tracks");

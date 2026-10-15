@@ -26,7 +26,7 @@ func routes() {
 	assert.ok(p.includes("GET /health"), "top-level route, no prefix");
 	assert.ok(p.includes("POST /api/auth/login"));
 	assert.ok(p.includes("GET /api/users"));
-	assert.ok(p.includes("GET /api/users/:id"), "{id} → :id, nested prefix");
+	assert.ok(p.includes("GET /api/users/:id"), "{id} -> :id, nested prefix");
 	assert.ok(p.includes("DELETE /api/users/:id"));
 });
 
@@ -41,7 +41,7 @@ api.POST("/vendors/:id/state", setState)`;
 	assert.ok(p.includes("POST /v1/vendors/:id/state"));
 });
 
-test("gorilla: HandleFunc + .Methods(...) → one endpoint per method", () => {
+test("gorilla: HandleFunc + .Methods(...) -> one endpoint per method", () => {
 	const src = `
 r := mux.NewRouter()
 r.HandleFunc("/products", productsHandler).Methods("GET", "POST")`;
@@ -57,7 +57,7 @@ mux.HandleFunc("GET /items/{id}", getItem)
 mux.HandleFunc("/legacy", legacyHandler)`;
 	const p = paths(src);
 	assert.ok(p.includes("GET /items/:id"), "Go 1.22 'GET /path/{id}'");
-	assert.ok(p.includes("GET /legacy"), "method-less → GET");
+	assert.ok(p.includes("GET /legacy"), "method-less -> GET");
 });
 
 test("fiber: app-level routes have no prefix", () => {

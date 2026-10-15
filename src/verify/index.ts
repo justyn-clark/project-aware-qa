@@ -7,6 +7,7 @@
  * `.qa/runs/<id>/findings/` directory and every result carries either evidence or a skip reason, so the
  * report can never claim "done" without backing.
  */
+
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -14,6 +15,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { type ChangeSelection, selectChanges } from "../change-selection.js";
 import { dependencyGraph, surfaceRoots } from "../dependency-graph.js";
 import { detectPlaywright } from "../detectors/playwright.js";
+import { runDiagnostics } from "../diagnostics/run.js";
 import { readRegistry, writeArtifact } from "../io.js";
 import { validateRegistry } from "../registry/schema.js";
 import { clearFileCache, walkRepo } from "../scanner/files.js";
@@ -75,6 +77,8 @@ export interface VerifyOptions {
 	runInstall?: boolean;
 	/** Lift the long-running-tests brake. */
 	runTests?: boolean;
+	runDiagnostics?: boolean;
+	runCloud?: boolean;
 	/** Lift the screenshot brake (needs a running app). */
 	runScreenshots?: boolean;
 	/** Start the project's dev server before route probes/screenshots, then stop it. */
@@ -225,6 +229,7 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 	}
 	if (registry)
 		checks.push(...(await runBehaviorChecks(config, registry, options, selection?.surfaceIds)));
+	checks.push(...(await runDiagnostics(config.diagnostics ?? [], options)));
 	if (team?.suppressions.some((entry) => entry.status !== "active"))
 		checks.push({
 			id: "suppressions",

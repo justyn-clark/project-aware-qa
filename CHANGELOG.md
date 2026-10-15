@@ -7,6 +7,13 @@ to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Opt-in runtime diagnostics with fresh, fingerprinted evidence: Bun JUnit/LCOV,
+  Bun/Node CPU and heap captures, Go JSON tests/race/coverage, repeated benchmarks,
+  and native Go CPU/memory/execution traces.
+- CTV collector contracts, extensible platform catalog, device/scenario metadata,
+  repeated performance samples, absolute budgets and comparable baseline gates.
+- Runtime/package-manager declarations, Cloudflare binding discovery and opt-in
+  read-only deployment identity checks; AWS/Azure/GCP and IaC configuration markers.
 - Next.js App and Pages Router discovery, dynamic and catch-all routes, App HTTP
   exports and Pages API handlers, including workspace and `src/` roots.
 - Express.js static apps, mounted routers and chained methods; Fastify shorthand and

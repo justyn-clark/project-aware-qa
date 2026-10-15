@@ -13,6 +13,15 @@ export {
 	type VerifyStepResult,
 } from "./core.js";
 export { affectedRoots, type DependencyGraph, dependencyGraph } from "./dependency-graph.js";
+export { type DiagnosticCheck, parseDiagnostics } from "./diagnostics/config.js";
+export {
+	CTV_PLATFORMS,
+	evaluatePerformance,
+	METRICS,
+	type PerformanceCapture,
+	parsePerformance,
+} from "./diagnostics/performance.js";
+export { runDiagnostics } from "./diagnostics/run.js";
 export { type CrudFlow, inferCrudFlows } from "./inference/crud.js";
 export { type RiskInput, type RiskResult, scoreRisk } from "./inference/risk.js";
 export {

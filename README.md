@@ -249,6 +249,23 @@ Conventions follow the [Next.js routing documentation](https://nextjs.org/docs/a
 [Express routing guide](https://expressjs.com/en/guide/routing/), and
 [Fastify route reference](https://fastify.dev/docs/latest/Reference/Routes/).
 
+### Runtime, cloud and CTV evidence (unreleased)
+
+Bun tests/coverage, Bun/Node CPU and memory profiles, and Go tests/race checks,
+benchmarks and native profiles are available through `verify --diagnostics`.
+Cloudflare deployment identity inspection additionally requires `--cloud`.
+Scanning distinguishes runtime declarations from package managers and writes
+`platform-report.md` with Cloudflare bindings and provider/IaC configuration markers.
+
+CTV and legacy-device collectors can submit fresh scenario measurements with device,
+firmware, runtime and build identity. Budgets and baseline comparisons reject missing
+or incomparable evidence. The platform catalog covers major TV, streaming-stick,
+set-top-box and console families, plus custom IDs. These are external collector
+integrations; physical-device capture and validation are not implied.
+
+See the [runtime and CTV guide](templates/runtime-diagnostics.md) for presets,
+configuration, artifact formats, limits and platform support levels.
+
 ### ASCII-only project text
 
 All project-owned source, documentation, templates and output labels must use ASCII.

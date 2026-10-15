@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "runId": "REPLACE_WITH_QA_RUN_ID",
+  "sourceHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "collectedAt": "2026-10-15T00:00:00.000Z",
+  "buildId": "EXAMPLE_ONLY_REPLACE_WITH_MEASURED_BUILD",
+  "device": {
+    "platform": "tizen",
+    "model": "EXAMPLE_ONLY",
+    "osVersion": "EXACT_FIRMWARE",
+    "runtime": "DEVICE_ENGINE",
+    "runtimeVersion": "EXACT_ENGINE_VERSION",
+    "kind": "physical",
+    "memoryMb": "1024"
+  },
+  "scenario": {
+    "name": "steady-playback",
+    "phase": "steady-state",
+    "contentId": "VERSIONED_TEST_ASSET",
+    "codec": "h264",
+    "resolution": "1920x1080",
+    "drm": "test-clear",
+    "network": "lab-fixed-20mbps",
+    "durationMs": 60000,
+    "warmupMs": 10000,
+    "instrumentation": "COLLECTOR_VERSION_AND_OPTIONS",
+    "sampleIntervalMs": 1000,
+    "cpuNormalization": "100=all-logical-cpus"
+  },
+  "samples": [
+    {
+      "iteration": 0,
+      "metrics": {
+        "rssMb": 60,
+        "timeToFirstFrameMs": 1200,
+        "droppedFramesPct": 0.2
+      }
+    },
+    {
+      "iteration": 1,
+      "metrics": {
+        "rssMb": 61,
+        "timeToFirstFrameMs": 1220,
+        "droppedFramesPct": 0.2
+      }
+    },
+    {
+      "iteration": 2,
+      "metrics": {
+        "rssMb": 62,
+        "timeToFirstFrameMs": 1240,
+        "droppedFramesPct": 0.2
+      }
+    },
+    {
+      "iteration": 3,
+      "metrics": {
+        "rssMb": 63,
+        "timeToFirstFrameMs": 1260,
+        "droppedFramesPct": 0.2
+      }
+    },
+    {
+      "iteration": 4,
+      "metrics": {
+        "rssMb": 64,
+        "timeToFirstFrameMs": 1280,
+        "droppedFramesPct": 0.2
+      }
+    }
+  ]
+}

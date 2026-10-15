@@ -121,6 +121,8 @@ export interface StackInfo {
 }
 
 export interface ProjectInfo {
+	runtimeDeclarations?: import("./scanner/platforms.js").RuntimeDeclaration[];
+	infrastructure?: import("./scanner/platforms.js").InfrastructureDeclaration[];
 	name?: string;
 	root: string;
 	/** Primary (highest-confidence) stack's package manager, for at-a-glance reporting. */

@@ -6,9 +6,11 @@
  * gets the generic baseline, and a monorepo gets one stack per sub-project. Merges all
  * per-stack DetectionBundles and surfaces into the shape the registry builder expects.
  */
+
 import type { DetectionBundle } from "../detectors/types.js";
 import type { RepoFiles } from "../scanner/files.js";
 import { nodePackageRoots } from "../scanner/package.js";
+import { discoverPlatforms } from "../scanner/platforms.js";
 import type { PackageManager, ProjectInfo, StackInfo, Surface } from "../types.js";
 import { csharpAdapter } from "./csharp.js";
 import { genericAdapter } from "./generic.js";
@@ -123,6 +125,9 @@ export function scanStacks(repo: RepoFiles): MultiStackScan {
 	const extraSurfaces = kept.flatMap((s) => s.extraSurfaces);
 
 	const project = buildProjectInfo(repo, stacks, kept);
+	const platforms = discoverPlatforms(repo);
+	project.runtimeDeclarations = platforms.runtimes;
+	project.infrastructure = platforms.infrastructure;
 	return { project, bundle, extraSurfaces };
 }
 

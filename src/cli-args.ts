@@ -14,6 +14,8 @@ export interface VerifyFlags {
 	scope?: string;
 	runInstall: boolean;
 	runTests: boolean;
+	runDiagnostics: boolean;
+	runCloud: boolean;
 	runScreenshots: boolean;
 	startDevServer: boolean;
 	baseUrl?: string;
@@ -38,6 +40,8 @@ export interface ParsedArgs {
 }
 
 const VERIFY_BOOLEANS = [
+	"diagnostics",
+	"cloud",
 	"install",
 	"tests",
 	"screenshots",
@@ -198,6 +202,8 @@ export function verifyFlags(args: ParsedArgs): VerifyFlags {
 		scope: args.scope,
 		runInstall: args.flags.has("install"),
 		runTests: args.flags.has("tests"),
+		runDiagnostics: args.flags.has("diagnostics"),
+		runCloud: args.flags.has("cloud"),
 		runScreenshots: args.flags.has("screenshots"),
 		startDevServer: args.flags.has("start-dev-server"),
 		baseUrl: args.values.get("base-url"),

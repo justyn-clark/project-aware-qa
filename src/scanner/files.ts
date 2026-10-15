@@ -10,6 +10,10 @@ import { isAbsolute, join, relative, sep } from "node:path";
 
 const DEFAULT_IGNORES = new Set([
 	"node_modules",
+	".terraform",
+	".wrangler",
+	".aws-sam",
+	"cdk.out",
 	".git",
 	"dist",
 	"build",
@@ -99,6 +103,23 @@ const CODE_EXTENSIONS = new Set([
 
 // Build-file / marker basenames that indicate a stack and are worth reading.
 const MARKER_FILES = new Set([
+	"bunfig.toml",
+	"bun.lock",
+	"bun.lockb",
+	"wrangler.json",
+	"wrangler.jsonc",
+	"wrangler.toml",
+	"cdk.json",
+	"samconfig.toml",
+	"serverless.yml",
+	"serverless.yaml",
+	"template.yaml",
+	"template.yml",
+	"host.json",
+	"azure.yaml",
+	"app.yaml",
+	"cloudbuild.yaml",
+	"Pulumi.yaml",
 	"package.json",
 	"tsconfig.json",
 	"nest-cli.json",
@@ -130,7 +151,7 @@ const MARKER_FILES = new Set([
 	"meson.build",
 	"project.godot",
 ]);
-const MARKER_SUFFIXES = [".csproj", ".fsproj", ".sln", ".gemspec"];
+const MARKER_SUFFIXES = [".tf", ".bicep", ".csproj", ".fsproj", ".sln", ".gemspec"];
 const CONFIG_PREFIXES = [
 	"playwright.config.",
 	"vite.config.",

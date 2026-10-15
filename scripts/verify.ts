@@ -8,6 +8,7 @@
  *                         [--max-routes N] [--timeout MS]
  *                         [--changed-since REF] [--require id,id]
  *                         [--fail-on-incomplete] [--junit] [--sarif]
+ *                         [--diagnostics] [--cloud]
  *
  * Brakes: --install, --tests and --screenshots are off by default. Without them the
  * verifier records those checks as skipped with a reason rather than executing them.

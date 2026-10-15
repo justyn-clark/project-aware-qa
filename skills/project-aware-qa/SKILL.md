@@ -128,3 +128,13 @@ Inference correlates surfaces by **entity** (e.g. track <-> tracks <-> `@Control
 `TrackController` / `Router::new().route("/tracks", ...)` <-> `CreateTrackDto`) - the same way for
 every stack - to build CRUD flows, map forms to endpoints, diff form fields against DTOs, and
 pair mutations with their (missing) cache invalidations.
+
+## Runtime and device diagnostics
+
+Use the configured `diagnostics` checks via `/qa-verify --diagnostics` when runtime
+profiling or device measurements are requested. Cloudflare API inspection additionally
+requires `--cloud`. See [the diagnostic contract](../../templates/runtime-diagnostics.md).
+Profiles alone remain inconclusive; only explicit passing performance budgets establish
+a performance check result. Do not infer Bun runtime from its package manager, physical
+CTV behavior from desktop/emulator results, or total memory from JS heap. External
+collectors must supply fresh run/source identity and honest device/build metadata.

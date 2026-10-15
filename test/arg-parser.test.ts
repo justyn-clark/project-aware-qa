@@ -13,6 +13,8 @@ test("Pi parses scope, booleans, and all value flags without swallowing argument
 		scope: "admin users",
 		runInstall: true,
 		runTests: true,
+		runDiagnostics: false,
+		runCloud: false,
 		runScreenshots: true,
 		startDevServer: true,
 		baseUrl: "http://localhost:5173",

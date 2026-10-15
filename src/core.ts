@@ -34,6 +34,7 @@ import {
 import { renderQaReport } from "./report/summary.js";
 import { renderVerificationReport } from "./report/verification.js";
 import { type ScanResult, scanRepo } from "./scanner/index.js";
+import { renderPlatforms } from "./scanner/platforms.js";
 import { matchesScope } from "./scope.js";
 import { readTeamConfig } from "./team-config.js";
 import { analyzeTeam, createBaseline, renderTeamReport } from "./team-insights.js";
@@ -91,6 +92,16 @@ export function runScan(
 		if (options.saveBaseline)
 			written.push(writeJsonArtifact(root, "baseline.json", createBaseline(scan.registry)));
 		written.push(writeArtifact(root, "scan-report.md", renderScanReport(scan)));
+		written.push(
+			writeArtifact(
+				root,
+				"platform-report.md",
+				renderPlatforms({
+					runtimes: scan.project.runtimeDeclarations ?? [],
+					infrastructure: scan.project.infrastructure ?? [],
+				}),
+			),
+		);
 		written.push(
 			writeArtifact(root, "crud-matrix.md", renderCrudMatrix(scan.flows, scan.registry)),
 		);

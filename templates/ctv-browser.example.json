@@ -1,0 +1,23 @@
+{
+  "url": "http://127.0.0.1:3000/tv",
+  "name": "browse-and-play",
+  "buildId": "replace-with-build-sha",
+  "hostId": "desktop-lab-01",
+  "readySelector": "[data-qa=tv-home]",
+  "steps": [
+    { "key": "ArrowRight", "focus": "[data-qa=featured-title]" },
+    { "key": "Enter", "focus": "[data-qa=player-pause]" }
+  ],
+  "videoSelector": "video",
+  "contentId": "clear-test-clip-v1",
+  "codec": "h264",
+  "drm": "none",
+  "network": "local-fixture-no-throttling",
+  "viewport": { "width": 1920, "height": 1080 },
+  "runs": 3,
+  "durationMs": 5000,
+  "warmupMs": 1000,
+  "cpuThrottle": 4,
+  "timeoutMs": 10000,
+  "debug": false
+}

@@ -1,5 +1,7 @@
 import type { ArtifactFormat } from "./config.js";
 import { number, object } from "./config.js";
+import { parsePythonProfile } from "./python.js";
+import { parseSpeedscope } from "./speedscope.js";
 
 export interface ParsedEvidence {
 	status: "passed" | "failed" | "inconclusive";
@@ -263,7 +265,10 @@ export function parseProfile(source: Buffer, format: ArtifactFormat): ParsedEvid
 			records: events?.length ?? spans?.length,
 			note: "Raw trace attached. Sampling completeness and causality require collector metadata.",
 		};
-	} else if (format !== "opaque-profile") throw Error(`Unsupported profile format ${format}`);
+	} else if (format === "python-profile")
+		details = parsePythonProfile(JSON.parse(source.toString()));
+	else if (format === "speedscope") details = parseSpeedscope(JSON.parse(source.toString()));
+	else if (format !== "opaque-profile") throw Error(`Unsupported profile format ${format}`);
 	return {
 		status: "inconclusive",
 		summary: `${format} captured for inspection; no performance budget evaluated`,

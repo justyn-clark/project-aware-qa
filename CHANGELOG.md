@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- CTV browser collector with remote-key focus and playback assertions, repeated desktop
+  metrics, synthetic CPU throttling, screenshots and optional Playwright/CDP captures.
+- Python pytest/cProfile/tracemalloc, Rust LLVM coverage and CMake/CTest presets;
+  validated Speedscope imports and native-language collector runtime identities.
 - Opt-in runtime diagnostics with fresh, fingerprinted evidence: Bun JUnit/LCOV,
   Bun/Node CPU and heap captures, Go JSON tests/race/coverage, repeated benchmarks,
   and native Go CPU/memory/execution traces.

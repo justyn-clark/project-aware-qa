@@ -34,3 +34,23 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: node dist/src/cli.js --help
+
+  ctv-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install isolated browser test tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/qa-browser" --no-package-lock playwright@1.62.1
+          node "$RUNNER_TEMP/qa-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Verify CTV collector in real Chromium
+        run: |
+          QA_PLAYWRIGHT_MODULE="$RUNNER_TEMP/qa-browser/node_modules/playwright/index.mjs" node --import tsx --test test/ctv-browser.test.ts

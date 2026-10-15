@@ -10,12 +10,18 @@ export const FORMATS = [
 	"trace",
 	"opaque-profile",
 	"performance",
+	"python-profile",
+	"speedscope",
 ] as const;
 export type ArtifactFormat = (typeof FORMATS)[number];
 export interface DiagnosticCheck {
 	id: string;
 	kind:
 		| "bun-test"
+		| "python-test"
+		| "python-profile"
+		| "rust-coverage"
+		| "cmake-test"
 		| "go-test"
 		| "go-benchmark"
 		| "go-profile"
@@ -24,7 +30,7 @@ export interface DiagnosticCheck {
 		| "cloudflare";
 	cwd: string;
 	command?: string[];
-	runtime?: "bun" | "node" | "deno" | "go";
+	runtime?: "bun" | "node" | "deno" | "go" | "python3" | "rustc" | "zig" | "clang";
 	target?: string;
 	race: boolean;
 	artifacts: { path: string; format: ArtifactFormat }[];
@@ -97,6 +103,10 @@ export function parseDiagnostics(value: unknown): DiagnosticCheck[] {
 		if (
 			![
 				"bun-test",
+				"python-test",
+				"python-profile",
+				"rust-coverage",
+				"cmake-test",
 				"go-test",
 				"go-benchmark",
 				"go-profile",
@@ -120,15 +130,23 @@ export function parseDiagnostics(value: unknown): DiagnosticCheck[] {
 			d.runtime === undefined
 				? undefined
 				: (text(d.runtime, "runtime") as DiagnosticCheck["runtime"]);
-		if (runtime && !["bun", "node", "deno", "go"].includes(runtime))
+		if (
+			runtime &&
+			!["bun", "node", "deno", "go", "python3", "rustc", "zig", "clang"].includes(runtime)
+		)
 			throw Error("Unsupported runtime");
 		if (runtime && kind !== "collector" && kind !== "runtime-profile")
 			throw Error("Only collector/runtime-profile checks accept a runtime override");
 		const target = d.target === undefined ? undefined : text(d.target, "target");
 		if (target && (!/^\.\/(?:[\w./-]+)?$/.test(target) || target.split("/").includes("..")))
 			throw Error("target must be a local ./package or ./... pattern");
-		if (target && !kind.startsWith("go-") && kind !== "runtime-profile")
-			throw Error("target is only supported for Go or runtime-profile checks");
+		if (
+			target &&
+			!kind.startsWith("go-") &&
+			!kind.startsWith("python-") &&
+			kind !== "runtime-profile"
+		)
+			throw Error("target is only supported for Go, Python or runtime-profile checks");
 		if (d.artifacts !== undefined && !Array.isArray(d.artifacts))
 			throw Error("artifacts must be an array");
 		const artifacts = ((d.artifacts ?? []) as unknown[]).map((v) => {
@@ -172,6 +190,8 @@ export function parseDiagnostics(value: unknown): DiagnosticCheck[] {
 			throw Error("runtime-profile requires runtime bun/node and a local script target");
 		if (kind === "go-profile" && (!target || target.includes("...")))
 			throw Error("go-profile requires one explicit local package target");
+		if (kind === "python-profile" && !target?.endsWith(".py"))
+			throw Error("python-profile requires a local .py script target");
 		const check: DiagnosticCheck = {
 			id,
 			kind,

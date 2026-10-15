@@ -16,6 +16,7 @@ import {
 	parseProfile,
 } from "./parsers.js";
 import { evaluatePerformance, parsePerformance } from "./performance.js";
+import { PYTHON_PROFILE } from "./python.js";
 
 function inside(root: string, path: string): boolean {
 	const rel = relative(root, path);
@@ -117,12 +118,22 @@ export async function runDiagnostics(
 				parsed.push(await inspectCloudflare(check, signal));
 			} else {
 				const runtime =
-					check.kind === "bun-test" ? "bun" : check.kind.startsWith("go-") ? "go" : check.runtime;
+					check.kind === "bun-test"
+						? "bun"
+						: check.kind.startsWith("go-")
+							? "go"
+							: check.kind.startsWith("python-")
+								? "python3"
+								: check.kind === "rust-coverage"
+									? "rustc"
+									: check.kind === "cmake-test"
+										? "ctest"
+										: check.runtime;
 				let runtimeIdentity: unknown = { name: "external", version: "collector-declared" };
 				if (runtime) {
 					const version = await runCommand(
 						runtime,
-						runtime === "go" ? ["version"] : ["--version"],
+						runtime === "go" || runtime === "zig" ? ["version"] : ["--version"],
 						{ cwd, timeoutMs: 10000, signal: options.signal },
 					);
 					if (version.exitCode !== 0 || version.timedOut || version.aborted)
@@ -140,6 +151,51 @@ export async function runDiagnostics(
 				}
 				let command = check.command ?? [];
 				let artifacts = check.artifacts;
+				if (check.kind === "rust-coverage") {
+					command = [
+						"cargo",
+						"llvm-cov",
+						"--offline",
+						"--locked",
+						"--lcov",
+						"--output-path",
+						`${dir}/lcov.info`,
+					];
+					artifacts = [{ path: "lcov.info", format: "lcov" }];
+				} else if (check.kind === "cmake-test") {
+					command = [
+						"ctest",
+						"--output-on-failure",
+						"--no-tests=error",
+						"--output-junit",
+						`${dir}/junit.xml`,
+					];
+					artifacts = [{ path: "junit.xml", format: "junit" }];
+				}
+				if (check.kind === "python-test") {
+					command = [
+						"python3",
+						"-B",
+						"-m",
+						"pytest",
+						"-p",
+						"no:cacheprovider",
+						`--junitxml=${dir}/junit.xml`,
+						check.target ?? ".",
+					];
+					artifacts = [{ path: "junit.xml", format: "junit" }];
+				} else if (check.kind === "python-profile") {
+					const entry = localInput(
+						root,
+						repoPath(
+							relative(root, resolve(cwd, check.target as string))
+								.split("\\")
+								.join("/"),
+						),
+					);
+					command = ["python3", "-B", "-c", PYTHON_PROFILE, entry, dir];
+					artifacts = [{ path: "python-profile.json", format: "python-profile" }];
+				}
 				if (check.kind === "bun-test") {
 					command = [
 						"bun",
@@ -223,7 +279,18 @@ export async function runDiagnostics(
 					timeoutMs: options.timeoutMs ?? 120000,
 					signal: options.signal,
 					maxBuffer: 8 * 1024 * 1024,
-					env: { QA_OUTPUT_DIR: dir, QA_RUN_ID: runId, QA_SOURCE_HASH: source.inputHash },
+					env: {
+						QA_OUTPUT_DIR: dir,
+						QA_RUN_ID: runId,
+						QA_SOURCE_HASH: source.inputHash,
+						...(check.kind === "rust-coverage"
+							? {
+									CARGO_LLVM_COV_TARGET_DIR: `${dir}/target`,
+									CARGO_LLVM_COV_BUILD_DIR: `${dir}/target`,
+									CARGO_LLVM_COV_SETUP: "no",
+								}
+							: {}),
+					},
 				});
 				result.command = redact(JSON.stringify(command));
 				result.exitCode = run.exitCode;

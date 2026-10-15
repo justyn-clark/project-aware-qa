@@ -43,6 +43,10 @@ as `-count`; performance collectors must produce that many independent repetitio
 | Preset | Evidence | Acceptance boundary |
 | --- | --- | --- |
 | bun-test | Runtime version, JUnit cases, LCOV per-file lines | Nonempty, passing cases; skipped cases are inconclusive. Unlisted source coverage is unknown |
+| python-test | Python version and pytest JUnit cases | Installed pytest in the active environment; actual cases required |
+| python-profile | cProfile functions and tracemalloc allocation totals | Instrumented Python evidence only; not native memory or a performance pass |
+| rust-coverage | rustc version and cargo-llvm-cov LCOV | Preinstalled LLVM tools, locked/offline dependencies; line coverage only |
+| cmake-test | CTest version and JUnit cases | Already-configured build directory; no tests is a failure |
 | go-test | Go version, JSON events, statement coverage, optional race detector | Passing completed tests/packages; cached results disabled |
 | go-benchmark | Repeated ns/op, B/op and allocs/op where emitted | Measurements only; no automatic speedup claim or benchmark threshold |
 | runtime-profile | Bun/Node CPU samples; Bun heap snapshot or Node sampled heap allocations | Profile capture only; no performance verdict |
@@ -66,6 +70,10 @@ native, GPU, media buffer or decoder memory.
 Raw artifact files are limited to 64 MiB and command output to 8 MiB per stream.
 Use bounded capture windows. Larger captures need an external inspection workflow;
 this implementation refuses them rather than silently truncating and passing them.
+
+See [CTV web and native profiling](ctv-web-and-native-profiling.md) for the runnable
+desktop browser collector, Chrome DevTools MCP workflow, Python/Rust/C++ presets,
+Zig/native collector boundaries, and Speedscope profile imports.
 
 ## Infrastructure discovery and Cloudflare inspection
 

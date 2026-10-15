@@ -266,6 +266,13 @@ integrations; physical-device capture and validation are not implied.
 See the [runtime and CTV guide](templates/runtime-diagnostics.md) for presets,
 configuration, artifact formats, limits and platform support levels.
 
+The [CTV web and native profiling guide](templates/ctv-web-and-native-profiling.md)
+includes a runnable Playwright collector for remote keys, focus and playback checks,
+desktop performance budgets, screenshots and optional CPU/trace captures. It also
+covers Chrome DevTools MCP evidence, Python test/profile presets, Rust LCOV,
+CMake/CTest JUnit and cross-language profile imports for Zig, Rust and C/C++.
+Desktop Chromium results remain separate from physical TV release requirements.
+
 ### ASCII-only project text
 
 All project-owned source, documentation, templates and output labels must use ASCII.

@@ -1,4 +1,4 @@
-# Prerequisite: install the tested 0.3 preview tarball as a pinned devDependency.
+# Prerequisite: npm install --save-dev --save-exact @justynclark/project-aware-qa@0.3.0
 name: Project-aware QA
 on: pull_request
 permissions:

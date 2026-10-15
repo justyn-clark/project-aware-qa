@@ -1,8 +1,11 @@
 # Team integration
 
-These features are in the 0.3 development build. Install the tested tarball as a pinned
-development dependency before using the CLI or workflow template. Published 0.2.2 fixes
-the Pi skill packaging issue and does not include this CLI.
+These features require version 0.3.0 or newer. Install a pinned development dependency
+before using the CLI or workflow template:
+
+```bash
+npm install --save-dev --save-exact @justynclark/project-aware-qa@0.3.0
+```
 
 Start with advisory runs against a representative pull request. Check the selected services,
 surface IDs, gaps and owners with the people who maintain them. Enable required checks once

@@ -17,8 +17,9 @@ specific ecosystems, and a generic adapter gives every other language a useful b
 A monorepo (e.g. a Remix frontend + a Phoenix backend) is detected as multiple stacks and
 verified per-stack.
 
-This branch contains the **0.3 development preview**. The published 0.2.2 maintenance
-package fixes skill loading; the reliability and CLI improvements below are unreleased.
+**Version 0.3.0** adds a standalone CLI, evidence validation, change-aware verification,
+and team policies. See the [team integration guide](templates/team-workflows.md) for
+configuration, ownership, baselines, authenticated checks, and CI exports.
 
 ### Stacks
 
@@ -80,7 +81,14 @@ pi -e extensions/qa.ts   # load the local extension for a session
 
 ### Standalone CLI and CI
 
-The development package includes a compiled CLI. Build it from this checkout:
+The package includes a compiled CLI. Install a pinned version in your project:
+
+```bash
+npm install --save-dev --save-exact @justynclark/project-aware-qa@0.3.0
+npx project-aware-qa --help
+```
+
+To build it from this checkout:
 
 ```bash
 npm run build

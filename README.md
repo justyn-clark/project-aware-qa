@@ -17,6 +17,9 @@ specific ecosystems, and a generic adapter gives every other language a useful b
 A monorepo (e.g. a Remix frontend + a Phoenix backend) is detected as multiple stacks and
 verified per-stack.
 
+This branch contains the **0.3 development preview**. The published 0.2.2 maintenance
+package fixes skill loading; the reliability and CLI improvements below are unreleased.
+
 ### Stacks
 
 | Adapter | Coverage |
@@ -52,8 +55,10 @@ After installing, `/reload` in Pi and the four commands appear.
 
 ### Developing on the pack
 
+Use Node 22 or newer.
+
 ```bash
-npm install
+npm ci
 npm run check   # strict typecheck
 npm run lint    # biome
 npm test        # node:test suite
@@ -66,14 +71,45 @@ pi -e extensions/qa.ts   # load the local extension for a session
 | --- | --- |
 | `/qa-scan` | `.qa/surface-registry.json`, `scan-report.md`, `crud-matrix.md`, `risk-report.md` |
 | `/qa-plan [scope]` | `.qa/test-plan.md` |
-| `/qa-verify [scope] [flags]` | `.qa/verification-report.md`, `.qa/findings/*`, `.qa/screenshots/*` |
+| `/qa-verify [scope] [flags]` | `.qa/verification.json`, `verification-report.md`, `.qa/runs/<id>/*` |
 | `/qa-report` | `.qa/qa-report.md` |
 
 `/qa-verify` flags (all **off by default** — they're brakes):
 `--install`, `--tests`, `--screenshots`, `--start-dev-server`, `--base-url <url>`,
 `--max-routes <n>`, `--timeout <ms>`.
 
-### As standalone scripts
+### Standalone CLI and CI
+
+The development package includes a compiled CLI. Build it from this checkout:
+
+```bash
+npm run build
+node dist/src/cli.js scan /path/to/repo --json
+node dist/src/cli.js plan /path/to/repo --scope admin
+node dist/src/cli.js verify /path/to/repo --tests --json
+node dist/src/cli.js report /path/to/repo
+```
+
+For a pull request or CI job, scan the exact checkout and restrict verification to the
+changed stacks, their consumers, and affected service routes:
+
+```bash
+project-aware-qa scan . --json
+project-aware-qa verify . --changed-since origin/main --tests \
+  --require registry,typecheck,lint,test --junit --sarif --json
+```
+
+`--changed-since` combines the Git three-dot diff with staged, unstaged, and untracked files.
+Local Node dependencies propagate transitively, including packages without runnable scripts.
+Explicit cross-service dependencies live in `.project-aware-qa.json`. Root/shared inputs,
+changed manifests and unmapped files conservatively select every stack, including when an
+old dependency edge was removed. Renames include both paths. Helpers select all routes in
+their service before the route limit is applied. The graph, reasons and resolved base commit
+are recorded in each run as `change-selection.json`.
+
+`npm pack` builds the executable before packing. Installing that tarball exposes
+`project-aware-qa` with the same commands, without requiring Pi or `tsx`.
+The TypeScript wrapper scripts remain available during development:
 
 ```bash
 tsx scripts/scan.ts   /path/to/repo
@@ -82,14 +118,69 @@ tsx scripts/verify.ts /path/to/repo --screenshots --base-url http://localhost:51
 tsx scripts/report.ts /path/to/repo
 ```
 
+Arguments are shared between Pi and the CLI. Unknown options, missing values, conflicting
+arguments, and nonpositive numeric limits fail before running a workflow. Quote paths and
+scopes containing spaces. `--json` is available on CLI commands only.
+
+Verification remains advisory by default. `--require <id,id>` promotes missing, failed,
+skipped, or inconclusive matching checks to a policy failure; a requirement such as `typecheck`
+matches every package-specific typecheck ID. `--fail-on-incomplete` additionally rejects any
+skipped or inconclusive check. Exit 1 indicates a check or policy failure; cancellation exits 130.
+
+`--junit` writes `.qa/verification.junit.xml`; `--sarif` writes
+`.qa/verification.sarif.json`. Immutable copies live in `.qa/runs/<id>/` beside the JSON and
+Markdown reports. Once enabled in a workspace, exports are refreshed on subsequent verification
+attempts, including failed prerequisites, so CI cannot upload an earlier passing result.
+The [CI template](templates/github-actions-qa.yml) checks the PR checkout with full Git history
+and uploads summary artifacts even when verification fails.
+
+### Engineering team workflows
+
+Use [the team guide](templates/team-workflows.md) and
+[configuration example](templates/project-aware-qa.example.json) to configure:
+
+- Dependencies between services and shared directories, plus mandatory checks that CLI defaults cannot weaken.
+- CODEOWNERS routing in `.qa/team-report.md`, using local file precedence and last matching rules.
+- Portable risk/gap baselines and a policy for new or worsened high-risk surfaces.
+- Exact gap suppressions with an owner, reason and UTC expiry. Original findings and failed checks remain visible.
+- Existing authenticated behavior suites, explicit surface mappings, fresh Playwright JSON results and trace attachments.
+
+Create a baseline with `project-aware-qa scan . --save-baseline`, then copy
+`.qa/baseline.json` to a version-controlled path and reference it in team configuration.
+`scan --baseline qa-baseline.json` also supports a one-off comparison. Baselines compare
+inferred risk and gaps, not screenshot pixels. They must use the same tool version.
+
+When several applications expose the same route, use `verify --service apps/web
+--base-url http://localhost:5173` for that visual target. Otherwise visual verification is
+inconclusive and no cross-service route probes run. Package checks still run for all affected
+stacks. Authenticated assertions run through your configured test command with `--tests`;
+pass credentials through environment variable names, never command arguments or config values.
+
+### Evidence freshness
+
+Scanning records a Git commit (when available) and content fingerprint. Verification
+requires that snapshot to match current inputs. Edits require another scan; changes during
+verification make the run inconclusive. Legacy registries need a new scan.
+
+Each run stores logs, probes, screenshots, a report, and `verification.json` under
+`.qa/runs/<id>/`. The top-level `.qa/verification.json` points to the latest run through its
+run ID and contains the full structured results. Aggregated reports check source and registry
+fingerprints and evidence digests before displaying current counts. Deleted/changed artifacts
+are unverified; old source evidence is stale. All four check statuses remain visible.
+
+Package boundaries isolate inference and check execution. A matching test filename is
+evidence of a related test, with coverage **unknown** until established. Static cache signals
+likewise do not establish that a particular mutation executes an invalidation. Cross-package
+relationships require explicit verification.
+
 ## The repair loop
 
 ```
-scan → plan → verify → fix → verify → report
+scan → plan → verify → fix → scan → verify → report
 ```
 
-Nothing is "done" without evidence. Every verification check links its command log under
-`.qa/findings/`, and every failing check becomes a repair-loop finding carrying:
+Nothing is "done" without evidence. Executed checks link their logs under
+`.qa/runs/<id>/findings/`, and every failing check becomes a repair-loop finding carrying:
 **issue · evidence · suspected cause · fix status · rerun evidence · remaining gap.**
 Skipped checks are never counted as passing — they record *why* they were skipped.
 
@@ -166,3 +257,14 @@ Validated against `templates/surface-registry.schema.json`.
 - Auth-gated admin routes need credentials/config to verify at runtime.
 - Visual QA captures, it does **not** diff against baselines.
 - Cache-invalidation inference is best-effort and can produce false positives/negatives.
+- Fingerprints exclude installed dependencies and operational/generated output directories;
+  they establish a source snapshot, not reproducibility of external services or databases.
+- Process-tree cleanup has local POSIX regression coverage; Windows behavior and real browser
+  integration require separate validation. The CI matrix is configuration until run on GitHub.
+- Dependency inference covers local Node manifests; declare cross-language and network service
+  relationships explicitly. It is not a complete runtime call graph.
+- Ownership hints reflect the current checkout; GitHub evaluates review routing from the PR base
+  and checks account permissions. This tool does not request reviews or notify owners.
+- Behavior mappings state which suite the team assigns to a surface. Passing a suite does not
+  prove every assertion or user journey is covered. Traces may contain application data;
+  the CI template excludes attachments and raw logs from uploads.

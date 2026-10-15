@@ -17,6 +17,17 @@
         "version": { "type": "string" }
       }
     },
+    "provenance": {
+      "type": "object",
+      "required": ["inputHash", "commit", "files", "complete"],
+      "properties": {
+        "inputHash": { "type": "string" },
+        "commit": { "type": ["string", "null"] },
+        "files": { "type": "integer", "minimum": 0 },
+        "complete": { "type": "boolean" },
+        "issues": { "type": "array", "items": { "type": "string" } }
+      }
+    },
     "project": {
       "type": "object",
       "required": ["root", "packageManager", "frameworks", "scripts", "stacks"],

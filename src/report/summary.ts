@@ -6,6 +6,7 @@
  * contract so the agent never reports "done" without evidence.
  */
 import type { Risk, Surface, SurfaceRegistry } from "../types.js";
+import type { VerificationSummary } from "../verification-record.js";
 
 const RISK_BADGE: Record<Risk, string> = { high: "🔴", medium: "🟠", low: "🟢" };
 
@@ -27,8 +28,8 @@ export interface QaReportInputs {
 		testPlan: boolean;
 		verificationReport: boolean;
 	};
-	/** Optional verification roll-up (passed/failed/skipped) parsed by the caller. */
-	verification?: { passed: number; failed: number; skipped: number };
+	/** Structured results are only current when the source and registry still match. */
+	verification?: VerificationSummary;
 }
 
 export function renderQaReport(inputs: QaReportInputs): string {
@@ -50,12 +51,17 @@ export function renderQaReport(inputs: QaReportInputs): string {
 	const cacheRisks = registry.surfaces.filter((s) => s.type === "cache-risk");
 	const testGaps = registry.surfaces.filter((s) => s.type === "test-gap");
 	lines.push(
-		`- CRUD flows: **${crud.length}** · cache risks: **${cacheRisks.length}** · untested mutating areas: **${testGaps.length}**`,
+		`- CRUD flows: **${crud.length}** · cache risks: **${cacheRisks.length}** · unverified mutating areas: **${testGaps.length}**`,
 	);
-	if (verification) {
+	if (verification?.state === "current") {
 		lines.push(
-			`- Verification: **${verification.passed} passed · ${verification.failed} failed · ${verification.skipped} skipped**`,
+			`- Verification: **${verification.passed} passed · ${verification.failed} failed · ${verification.skipped} skipped · ${verification.inconclusive} inconclusive**`,
 		);
+		lines.push(
+			`- Verified at: ${verification.generatedAt} · scope: ${verification.scope ?? "all"} · run: ${verification.runId}`,
+		);
+	} else if (verification) {
+		lines.push(`- Verification: **${verification.state}** — ${verification.reason}`);
 	} else {
 		lines.push("- Verification: _not run yet (`/qa-verify`)_");
 	}
@@ -79,6 +85,10 @@ export function renderQaReport(inputs: QaReportInputs): string {
 	}
 
 	lines.push("\n## Artifacts\n");
+	if (registry.team)
+		lines.push(
+			"- `.qa/team-report.md` — CODEOWNERS routing, baseline changes and expiring suppressions\n",
+		);
 	const artifactRows: Array<[string, boolean, string]> = [
 		[".qa/surface-registry.json", true, "machine-readable surface registry"],
 		[".qa/scan-report.md", artifacts.scanReport, "scan overview"],

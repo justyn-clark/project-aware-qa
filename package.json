@@ -1,8 +1,17 @@
 {
   "name": "@justynclark/project-aware-qa",
-  "version": "0.2.2",
+  "version": "0.3.0-dev.0",
   "description": "Pi-first QA pack: scans real codebases, infers test surfaces, ranks risk, runs evidence-based checks, captures screenshots, and writes .qa/* reports.",
   "type": "module",
+  "bin": {
+    "project-aware-qa": "dist/src/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
   "license": "Apache-2.0",
   "author": "justyn-clark <ijustynclark@gmail.com>",
   "homepage": "https://github.com/justyn-clark/project-aware-qa#readme",
@@ -27,12 +36,14 @@
     "jcn"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "publishConfig": {
     "access": "public"
   },
   "files": [
+    "dist/src",
+    "dist/scripts",
     "extensions",
     "skills",
     "scripts",
@@ -51,7 +62,7 @@
     ]
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "check": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check .",
     "format": "biome check --write .",
@@ -61,7 +72,8 @@
     "qa:plan": "tsx scripts/plan.ts",
     "qa:verify": "tsx scripts/verify.ts",
     "qa:report": "tsx scripts/report.ts",
-    "prepublishOnly": "npm run lint && npm run check && npm test"
+    "prepublishOnly": "npm run lint && npm run check && npm test",
+    "prepack": "npm run build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.1",

@@ -154,7 +154,7 @@ export function detectCacheSignals(repo: RepoFiles): CacheSignal[] {
 		if (!content) continue;
 		// Cheap pre-filter: skip files with no cache-ish tokens at all.
 		if (
-			!/Query|useSWR|mutate|cachified|clearCacheKey|Cache|localStorage|sessionStorage|Revalidat|revalidat/.test(
+			!/Query|invalidateQueries|useSWR|mutate|cachified|clearCacheKey|Cache|localStorage|sessionStorage|Revalidat|revalidat/.test(
 				content,
 			)
 		) {

@@ -5,7 +5,8 @@
  */
 import type { CrudFlow, CrudOp } from "../inference/crud.js";
 import type { ScanResult } from "../scanner/index.js";
-import type { Risk, Surface, SurfaceRegistry, SurfaceType } from "../types.js";
+import { matchesScope } from "../scope.js";
+import type { Risk, Surface, SurfaceRegistry } from "../types.js";
 
 const RISK_BADGE: Record<Risk, string> = { high: "🔴 high", medium: "🟠 medium", low: "🟢 low" };
 const CRUD_OPS: CrudOp[] = ["create", "read", "list", "update", "delete"];
@@ -252,7 +253,12 @@ const DEPTH_BY_RISK: Record<Risk, string> = {
 function planStepsForSurface(s: Surface): string[] {
 	const steps: string[] = [];
 	for (const t of s.inferredTests) {
-		const mark = t.status === "present" ? "↺ (has test)" : "☐ (no test)";
+		const mark =
+			t.status === "present"
+				? "↺ (has test)"
+				: t.status === "unknown"
+					? "? (related test; coverage unverified)"
+					: "☐ (no related test found)";
 		steps.push(`- ${mark} **${t.kind}**: ${t.description}`);
 	}
 	if (s.gaps.length) {
@@ -266,29 +272,6 @@ export interface PlanOptions {
 	scope?: string;
 	/** Cap surfaces listed per risk tier. */
 	limitPerTier?: number;
-}
-
-function matchesScope(s: Surface, scope: string): boolean {
-	const q = scope.toLowerCase().trim();
-	if (!q) return true;
-	if (q === "admin") return /admin/i.test(s.title) || s.riskReasons.some((r) => /admin/.test(r));
-	if (["high", "medium", "low"].includes(q)) return s.risk === q;
-	if (
-		(
-			[
-				"crud-flow",
-				"form",
-				"api-endpoint",
-				"route",
-				"cache-risk",
-				"visual-page",
-				"test-gap",
-			] as SurfaceType[]
-		).includes(q as SurfaceType)
-	) {
-		return s.type === q;
-	}
-	return (s.entity ?? "").toLowerCase().includes(q) || s.title.toLowerCase().includes(q);
 }
 
 export function renderTestPlan(registry: SurfaceRegistry, options: PlanOptions = {}): string {
@@ -317,7 +300,12 @@ export function renderTestPlan(registry: SurfaceRegistry, options: PlanOptions =
 		.flatMap((s) => s.inferredTests)
 		.filter((t) => t.status === "missing").length;
 	lines.push(`- Surfaces in scope: **${selected.length}**`);
-	lines.push(`- Inferred tests: **${present} present**, **${missing} missing**`);
+	const unknown = selected
+		.flatMap((s) => s.inferredTests)
+		.filter((t) => t.status === "unknown").length;
+	lines.push(
+		`- Inferred tests: **${present} present**, **${missing} missing**, **${unknown} unverified**`,
+	);
 
 	for (const level of ["high", "medium", "low"] as Risk[]) {
 		const group = selected.filter((s) => s.risk === level);

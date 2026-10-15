@@ -40,10 +40,13 @@ export interface MutationInvalidationLink {
 	line: number;
 	source: "endpoint" | "tanstack" | "remix-action" | "swr";
 	invalidations: CacheSignal[];
+	/** Detected signals are candidates; static co-occurrence cannot prove execution order. */
+	invalidationStatus: "unknown" | "not-detected";
+	/** True only with a proven execution link; current heuristics cannot establish one. */
 	hasInvalidation: boolean;
 	/**
 	 * True only when the entity is actually cached somewhere (a query/cachified/backend
-	 * cache reads it) AND this mutation has no matching invalidation. A mutation against
+	 * cache reads it) AND this mutation has no proven invalidation. A mutation against
 	 * an uncached entity is not a stale-data risk — there is nothing to invalidate.
 	 */
 	staleRisk: boolean;
@@ -170,14 +173,12 @@ function buildMutationLinks(
 	const entityCached = cacheSignals.some(
 		(s) => s.kind === "query" || s.kind === "cachified" || s.kind === "backend-cache",
 	);
-	const staleRiskFor = (hasInvalidation: boolean): boolean => entityCached && !hasInvalidation;
 	const matchInvalidations = (matchEntity: string | undefined, key?: string): CacheSignal[] => {
 		return invalidations.filter((inv) => {
 			if (sameEntity(inv.entity, matchEntity)) return true;
 			if (key && inv.key?.includes(key)) return true;
 			if (inv.key && matchEntity && inv.key.toLowerCase().includes(entityKey(matchEntity)))
 				return true;
-			// useRevalidator/shouldRevalidate revalidate the whole route — count for same-file mutations.
 			return false;
 		});
 	};
@@ -192,8 +193,9 @@ function buildMutationLinks(
 			line: ep.line,
 			source: "endpoint",
 			invalidations: invs,
-			hasInvalidation: invs.length > 0,
-			staleRisk: staleRiskFor(invs.length > 0),
+			invalidationStatus: invs.length > 0 ? "unknown" : "not-detected",
+			hasInvalidation: false,
+			staleRisk: entityCached,
 		});
 	}
 
@@ -209,23 +211,24 @@ function buildMutationLinks(
 			line: mut.line,
 			source: "tanstack",
 			invalidations: invs,
-			hasInvalidation: invs.length > 0,
-			staleRisk: staleRiskFor(invs.length > 0),
+			invalidationStatus: invs.length > 0 ? "unknown" : "not-detected",
+			hasInvalidation: false,
+			staleRisk: entityCached,
 		});
 	}
 	for (const route of routes) {
 		if (!route.hasAction) continue;
-		// An action in the same file as a cache-clear/revalidation is considered covered.
-		const sameFileInval = invalidations.filter((inv) => inv.file === route.file);
-		const covered = sameFileInval.length > 0 || matchInvalidations(route.entity).length > 0;
+		const related = new Set(matchInvalidations(route.entity));
+		const invs = invalidations.filter((inv) => inv.file === route.file || related.has(inv));
 		links.push({
 			mutation: `action in ${route.routePath}`,
 			file: route.file,
 			line: 1,
 			source: "remix-action",
-			invalidations: sameFileInval,
-			hasInvalidation: covered,
-			staleRisk: staleRiskFor(covered),
+			invalidations: invs,
+			invalidationStatus: invs.length > 0 ? "unknown" : "not-detected",
+			hasInvalidation: false,
+			staleRisk: entityCached,
 		});
 	}
 	return links;

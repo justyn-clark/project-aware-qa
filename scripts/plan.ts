@@ -4,11 +4,19 @@
  *
  * Usage: tsx scripts/plan.ts [targetDir] [--scope <entity|type|risk|admin>]
  */
+import { wantsJson } from "../src/cli-args.js";
 import { runPlan } from "../src/core.js";
-import { parseArgs, printResult } from "./lib.js";
+import { parseArgs, printResult, runCli } from "./lib.js";
 
-const args = parseArgs(process.argv.slice(2));
-// Scope can be given as --scope or as a second positional after the dir.
-const scope = args.values.get("scope") ?? args.positionals[1];
-const result = runPlan(args.root, { scope });
-printResult(`qa-plan ${args.root}${scope ? ` (scope: ${scope})` : ""}`, result);
+await runCli(
+	async () => {
+		const args = parseArgs(process.argv.slice(2), "plan");
+		const result = runPlan(args.root, { scope: args.scope });
+		printResult(
+			`qa-plan ${args.root}${args.scope ? ` (scope: ${args.scope})` : ""}`,
+			result,
+			args.flags.has("json"),
+		);
+	},
+	wantsJson(process.argv.slice(2)),
+);

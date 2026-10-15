@@ -2,8 +2,8 @@
  * Existing-test detection.
  *
  * We classify test files and infer their subjects (from filename and imports) so the
- * planner can mark inferred tests as already "present" and the report can quantify the
- * test-gap. We intentionally do not run anything here — that is the verifier's job.
+ * report can show related test files. Filename/import matches do not establish whether
+ * a behavior is tested, asserted, enabled, or passing — that requires separate evidence.
  */
 import type { RepoFiles } from "../scanner/files.js";
 import { readFileCached } from "../scanner/files.js";

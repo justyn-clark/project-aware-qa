@@ -7,12 +7,13 @@
  * Remix frontend and a NestJS backend.
  */
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type { CheckKind, PackageManager } from "../types.js";
 import { type FileEntry, type RepoFiles, readFileCached, toPosix } from "./files.js";
 
 interface RawPackageJson {
 	name?: string;
+	packageManager?: string;
 	scripts?: Record<string, string>;
 	dependencies?: Record<string, string>;
 	devDependencies?: Record<string, string>;
@@ -40,6 +41,46 @@ export function detectPackageManager(root: string): PackageManager {
 	if (existsSync(join(root, "yarn.lock"))) return "yarn";
 	if (existsSync(join(root, "package-lock.json"))) return "npm";
 	return "unknown";
+}
+
+/** Resolve a package's own toolchain, inheriting only from enclosing directories. */
+function packageManagerFor(repoRoot: string, rootRel: string): PackageManager {
+	const root = resolve(repoRoot);
+	let dir = join(root, rootRel);
+	for (;;) {
+		const declared = parsePackageJson(join(dir, "package.json"))?.packageManager;
+		const pm = typeof declared === "string" ? declared.split("@")[0] : undefined;
+		if (pm === "npm" || pm === "pnpm" || pm === "yarn" || pm === "bun") return pm;
+		const fromLockfile = detectPackageManager(dir);
+		if (fromLockfile !== "unknown") return fromLockfile;
+		if (dir === root) break;
+		const parent = dirname(dir);
+		if (parent === dir) break;
+		dir = parent;
+	}
+	return "unknown";
+}
+
+/** Manifest boundaries stop scripts and source evidence leaking between packages. */
+export function nodePackageRoots(repo: RepoFiles): string[] {
+	return repo.files
+		.filter((f) => f.path === "package.json" || f.path.endsWith("/package.json"))
+		.map((f) => (f.path === "package.json" ? "" : f.path.slice(0, -"/package.json".length)))
+		.sort();
+}
+
+export function scopeNodePackage(repo: RepoFiles, rootRel: string): RepoFiles {
+	const children = nodePackageRoots(repo).filter(
+		(p) => p !== rootRel && (rootRel === "" || p.startsWith(`${rootRel}/`)),
+	);
+	return {
+		...repo,
+		files: repo.files.filter(
+			(f) =>
+				(rootRel === "" || f.path.startsWith(`${rootRel}/`)) &&
+				!children.some((child) => f.path.startsWith(`${child}/`)),
+		),
+	};
 }
 
 function parsePackageJson(abs: string): RawPackageJson | null {
@@ -79,10 +120,12 @@ function pickScript(scripts: Record<string, string>, candidates: string[]): stri
 	return undefined;
 }
 
-export function scanPackages(repo: RepoFiles): NodeToolchain {
+export function scanPackages(repo: RepoFiles, rootRel?: string): NodeToolchain {
 	const root = repo.root;
-	const pkgFiles = repo.files.filter(
-		(f) => f.path === "package.json" || f.path.endsWith("/package.json"),
+	const pkgFiles = repo.files.filter((f) =>
+		rootRel === undefined
+			? f.path === "package.json" || f.path.endsWith("/package.json")
+			: f.path === (rootRel ? `${rootRel}/package.json` : "package.json"),
 	);
 
 	const mergedScripts: Record<string, string> = {};
@@ -96,7 +139,7 @@ export function scanPackages(repo: RepoFiles): NodeToolchain {
 		const pkg = parsePackageJson(f.abs);
 		if (!pkg) continue;
 		packageJsonPaths.push(f.path);
-		if (f.path === "package.json" && pkg.name) rootName = pkg.name;
+		if ((rootRel !== undefined || f.path === "package.json") && pkg.name) rootName = pkg.name;
 		for (const [k, v] of Object.entries(pkg.scripts ?? {})) {
 			if (!(k in mergedScripts)) mergedScripts[k] = v;
 		}
@@ -141,7 +184,7 @@ export function scanPackages(repo: RepoFiles): NodeToolchain {
 
 	return {
 		name: rootName,
-		packageManager: detectPackageManager(root),
+		packageManager: packageManagerFor(root, rootRel ?? ""),
 		frameworks,
 		scripts: mergedScripts,
 		checkScripts,

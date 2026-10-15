@@ -1,0 +1,36 @@
+# Prerequisite: install the tested 0.3 preview tarball as a pinned devDependency.
+name: Project-aware QA
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: ./node_modules/.bin/project-aware-qa scan . --json
+      - name: Verify the PR checkout
+        env:
+          QA_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: ./node_modules/.bin/project-aware-qa verify . --changed-since "$QA_BASE_SHA" --tests --require registry,typecheck,lint,test --junit --sarif --json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: qa-summary-${{ github.run_id }}-${{ github.run_attempt }}
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            .qa/verification.junit.xml
+            .qa/verification.sarif.json
+            .qa/verification-report.md
+            .qa/team-report.md

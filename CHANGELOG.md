@@ -4,7 +4,43 @@ All notable changes to `@justynclark/project-aware-qa` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and this project adheres
 to [Semantic Versioning](https://semver.org/).
 
-## [0.2.2] — unreleased
+## [0.3.0] — unreleased
+
+### Added
+- A compiled `project-aware-qa` CLI with scan/plan/verify/report commands and structured
+  `--json` output. The published CLI runs with Node 22+ and no TypeScript loader.
+- Source/registry fingerprints, structured verification records, evidence digests, and
+  separate `.qa/runs/<id>/` artifacts for every verification run.
+- CI configuration for Node 22/24/26 on Linux and Node 24 on macOS, including a packed CLI smoke test.
+- Git change-aware stack/route selection, enforceable required-check policies, and JUnit/SARIF
+  exports for CI systems.
+- Versioned team configuration, transitive local package dependencies and explicit cross-service edges.
+- CODEOWNERS routing, portable risk/gap baselines, optional new-high-risk gates, and expiring
+  suppressions with visible owner/reason metadata.
+- Opt-in behavior suites with declared surface mappings, environment-based authentication,
+  fresh Playwright JSON verdicts and digest-bound trace attachments.
+- A team integration guide, example configuration and PR workflow template.
+
+### Fixed
+- Node monorepo checks retain their package directories and package managers. Parent
+  adapters exclude nested projects; services sharing routes keep separate surface IDs.
+- Related test files now mean unknown coverage, and no longer lower risk or claim
+  successful happy-path/validation coverage. Cache links remain unproven until verified.
+- A successful desktop screenshot cannot hide a failed mobile capture.
+- Screenshot capture resolves Playwright's CommonJS default export as well as named ESM exports.
+- Owned dev servers start before probes and are stopped after completion or cancellation.
+  Timeouts and cancellation clean up descendant processes.
+- Reports preserve inconclusive results and reject stale, missing, or changed evidence.
+- CLI/Pi flags share strict parsing, including quoted scopes, boolean flags before target
+  paths, positive numeric options, and errors before any work on invalid arguments.
+- Plan and verification scopes consistently select risk, surface type, entity, and route.
+- HTML templates reach Python form detection; runtime tool metadata uses the package version.
+- Affected service routes are filtered before sampling; ambiguous multi-app visual targets require
+  explicit service selection. Renames and removed manifests retain conservative change impact.
+- Failed verification prerequisites replace stale CI exports. Suppression expiry invalidates
+  old evidence; skipped/flaky/empty Playwright runs cannot claim a passing behavior result.
+
+## [0.2.2] — 2026-10-14
 
 ### Fixed
 - **Skill frontmatter** — `0.2.1` shipped a broken `SKILL.md`: a colon in the `description`
@@ -15,6 +51,8 @@ to [Semantic Versioning](https://semver.org/).
 ### Added
 - A test that parses every `SKILL.md` frontmatter (runs in `prepublishOnly`) so a malformed
   skill can never be published again.
+- A packed-release regression test that validates the shipped skill manifest and loads
+  the shipped extension to check registration of all four QA commands.
 
 ## [0.2.1] — 2026-06-27
 
@@ -53,6 +91,7 @@ First published release.
   trailing-slash variant rescue), and rendered-DOM screenshot validation — every claim backed
   by a command log or a skip reason.
 
-[0.2.2]: https://github.com/justyn-clark/project-aware-qa/compare/v0.2.1...HEAD
+[0.3.0]: https://github.com/justyn-clark/project-aware-qa/compare/b7507f6...HEAD
+[0.2.2]: https://github.com/justyn-clark/project-aware-qa/compare/v0.2.1...b7507f6
 [0.2.1]: https://github.com/justyn-clark/project-aware-qa/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/justyn-clark/project-aware-qa/releases/tag/v0.2.0

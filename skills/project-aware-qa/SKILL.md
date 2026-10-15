@@ -15,22 +15,35 @@ probe to back it.
 | --- | --- | --- |
 | `/qa-scan` | Static scan → infer surfaces, rank risk | `.qa/surface-registry.json`, `.qa/scan-report.md`, `.qa/crud-matrix.md`, `.qa/risk-report.md` |
 | `/qa-plan [scope]` | Risk-scaled test plan from the registry | `.qa/test-plan.md` |
-| `/qa-verify [scope] [flags]` | Run safe checks + route probes + screenshots | `.qa/verification-report.md`, `.qa/findings/*`, `.qa/screenshots/*` |
+| `/qa-verify [scope] [flags]` | Run checks against the scanned source snapshot | `.qa/verification.json`, `.qa/verification-report.md`, `.qa/runs/<id>/*` |
 | `/qa-report` | Aggregate everything + outstanding gaps | `.qa/qa-report.md` |
 
 `scope` is an entity (`track`), a surface type (`crud-flow`, `cache-risk`, …), a risk level
 (`high`), or `admin`. `/qa-verify` flags: `--install`, `--tests`, `--screenshots`,
-`--start-dev-server`, `--base-url <url>`, `--max-routes <n>`.
+`--start-dev-server`, `--base-url <url>`, `--max-routes <n>`, `--timeout <ms>`,
+`--changed-since <git-ref>`, `--require <id,id>`, `--fail-on-incomplete`, `--junit`, `--sarif`.
+Use `--service <repo-relative-root>` with a base URL when several applications expose routes.
+Scan accepts `--baseline <repo-relative-path>` and `--save-baseline`.
+
+Read `.project-aware-qa.json` when present: it defines cross-service dependencies, required
+checks, baseline policy, expiring gap suppressions and behavior suites. Review
+`.qa/team-report.md` for CODEOWNERS hints and baseline changes. Suppressions never override
+failed checks. Behavior suites need `--tests`; their exact surface mappings are declarations,
+not inferred exhaustive coverage. Supply credentials only through the configured environment
+names. Fresh Playwright JSON reports reject empty, skipped and flaky runs; configured trace
+attachments are archived and hashed. Review traces for sensitive data before sharing.
 
 You can also run the steps as scripts when outside Pi:
 `tsx scripts/scan.ts <dir>`, `plan.ts`, `verify.ts`, `report.ts`.
+The development build also provides `node dist/src/cli.js <scan|plan|verify|report> <dir>`;
+installed preview packages expose `project-aware-qa`. CLI commands accept `--json`.
 
 ## The repair loop
 
 Always work in this order, and surface evidence at every step:
 
 ```
-scan → plan → verify → fix → verify → report
+scan → plan → verify → fix → scan → verify → report
 ```
 
 1. **scan** — run `/qa-scan`. Read `risk-report.md` and `crud-matrix.md`. The high-risk
@@ -40,9 +53,11 @@ scan → plan → verify → fix → verify → report
    states what to test even when no test exists yet.
 3. **verify** — run `/qa-verify`. By default it runs typecheck/lint and probes routes; it
    records install, full tests, and screenshots as **skipped with a reason** unless you
-   opt in. Every executed check links a log under `.qa/findings/`.
+   opt in. Every executed check links evidence under `.qa/runs/<id>/`. A stale registry
+   requires a fresh scan before verification.
 4. **fix** — make a change. Keep it surgical and tied to one finding.
-5. **verify again** — re-run `/qa-verify` and link the new log as **rerun evidence**.
+5. **verify again** — scan the edited source, re-run `/qa-verify`, and link the new run as
+   **rerun evidence**. Earlier evidence remains under its own run ID.
 6. **report** — run `/qa-report` once the area is in good shape.
 
 ## Evidence rule (non-negotiable)
@@ -52,6 +67,17 @@ A finding is only "done" when the verification report records all of:
 A skipped check is **not** a pass — it carries its reason. If you cannot verify something
 (auth-gated route, missing seed data, server not running), say so explicitly and record it
 as a remaining gap rather than asserting it works.
+
+Use `.qa/verification.json` for machine-readable results. Reports check source/registry
+fingerprints and evidence digests; stale or missing artifacts cannot substantiate current
+results. Preserve `inconclusive` and `skipped` statuses. A successful command exit alone
+does not establish complete verification. Related test filenames and cache signals are
+inference with unknown coverage/execution, not proof of behavior.
+
+For CI or pull-request verification, scan the exact checkout before using `--changed-since`.
+The change set includes committed and local changes; root or unmapped shared files expand to
+all stacks. Verification is advisory unless `--require` or `--fail-on-incomplete` is supplied.
+Use the per-run JSON as the source record and JUnit/SARIF exports only as downstream views.
 
 ## Brakes — ask before
 
@@ -63,10 +89,12 @@ as a remaining gap rather than asserting it works.
 ## Capturing screenshots
 
 `/qa-verify --screenshots` drives Playwright if it can resolve `playwright`/`@playwright/test`
-from the target repo or globally. When it can't, it writes `.qa/screenshots/plan.json`
+from the target repo or the tool's current working directory. With screenshots disabled,
+it writes `.qa/runs/<id>/screenshots/plan.json`
 (base URL + routes + viewports) and skips with a reason — in that case capture the listed
 routes with the **Playwright MCP** (`browser_navigate` → `browser_take_screenshot`) at
-desktop (1280×800) and mobile (390×844), saving into `.qa/screenshots/`.
+desktop (1280×800) and mobile (390×844), keeping manual captures separate and labeling their
+provenance. Every requested viewport must succeed for the automated screenshot check to pass.
 
 ## What the scanner understands
 

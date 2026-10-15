@@ -151,3 +151,16 @@ test("summarizeScreenshots: all rendered cleanly → passed", () => {
 test("summarizeScreenshots: empty → skipped", () => {
 	assert.equal(summarizeScreenshots([]).status, "skipped");
 });
+
+test("summarizeScreenshots: desktop success cannot hide a mobile timeout", () => {
+	const verdict = summarizeScreenshots([
+		shot("/account", "desktop", { httpStatus: 200 }),
+		shot("/account", "mobile", { file: undefined, ok: false, error: "navigation timed out" }),
+	]);
+	assert.equal(verdict.status, "failed");
+	assert.match(verdict.summary ?? "", /failed viewport capture/);
+});
+
+test("summarizeScreenshots: a saved image with failed verification does not pass", () => {
+	assert.equal(summarizeScreenshots([shot("/account", "desktop", { ok: false })]).status, "failed");
+});

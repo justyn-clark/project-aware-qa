@@ -292,26 +292,24 @@ function buildStackScan(
 		targets: [],
 	}));
 
-	// One baseline test-gap surface per stack, risk-scaled by how thin coverage looks.
+	// A file count is inventory, not evidence that stack behavior is covered or passing.
 	const extraSurfaces: Surface[] = [];
 	if (sourceCount > 0) {
-		const ratio = testCount / sourceCount;
-		const thin = testCount === 0 || ratio < 0.1;
-		const risk = scoreRisk({ type: "test-gap", hasTests: testCount > 0 });
+		const risk = scoreRisk({ type: "test-gap", hasTests: false });
 		extraSurfaces.push({
 			id: `gap:${slug(spec.id)}:${slug(rootRel || "root")}`,
 			type: "test-gap",
-			title: `${label} test coverage${rootRel ? ` (${rootRel})` : ""}`,
+			title: `${label} test coverage unverified${rootRel ? ` (${rootRel})` : ""}`,
 			entity: undefined,
 			files: [rootRel || "."],
-			risk: thin ? (risk.level === "low" ? "medium" : risk.level) : "low",
+			risk: risk.level,
 			riskScore: risk.score,
 			riskReasons: risk.reasons,
 			inferredTests: [
 				{
 					kind: "unit",
 					description: `Run ${spec.label} tests (${stack.checks.test?.command ?? "no test command detected"})`,
-					status: testCount > 0 ? "present" : "missing",
+					status: testCount > 0 ? "unknown" : "missing",
 				},
 				{
 					kind: "smoke",
@@ -328,9 +326,7 @@ function buildStackScan(
 			gaps:
 				testCount === 0
 					? [`No tests detected for the ${spec.label} stack`]
-					: thin
-						? [`Thin test coverage: ${testCount} tests for ${sourceCount} source files`]
-						: [],
+					: ["Test files detected; behavior coverage and execution remain unknown"],
 		});
 	}
 	return { stack, bundle, extraSurfaces };

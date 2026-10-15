@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "dependencies": {
+    "apps/web": ["services/api", "contracts"]
+  },
+  "policy": {
+    "requiredChecks": ["registry", "typecheck", "lint", "behavior-admin"],
+    "failOnIncomplete": false,
+    "failOnNewHighRisk": false
+  },
+  "suppressions": [],
+  "behaviorChecks": [
+    {
+      "id": "admin",
+      "command": ["npm", "run", "qa:admin"],
+      "cwd": "apps/web",
+      "surfaceIds": ["REPLACE_WITH_EXACT_SCANNED_SURFACE_ID"],
+      "requiredEnv": ["QA_ADMIN_TOKEN"],
+      "playwrightReport": ".qa/admin-results.json",
+      "artifacts": []
+    }
+  ]
+}

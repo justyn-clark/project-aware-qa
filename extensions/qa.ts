@@ -8,7 +8,17 @@
  * in lockstep.
  */
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import {
+	ArgumentError,
+	type ParsedArgs,
+	parseQaArgs,
+	type QaCommand,
+	tokenizeArgs,
+	verifyFlags,
+} from "../src/cli-args.js";
 import { runPlan, runReport, runScan, runVerify, type StepResult } from "../src/core.js";
+
+export { parseVerifyArgs, type VerifyFlags } from "../src/cli-args.js";
 
 const QA_MESSAGE_TYPE = "qa-result";
 
@@ -18,102 +28,55 @@ function surface(
 	title: string,
 	result: StepResult,
 ): void {
-	const icon = result.ok ? "✅" : "❌";
+	const incomplete = result.outcome === "incomplete";
+	const icon = incomplete ? "⚠️" : result.ok ? "✅" : "❌";
+	const label = incomplete ? `${title} (incomplete)` : title;
 	const files = result.writtenFiles.map((f) => `- \`${f}\``).join("\n");
 	const content =
-		`${icon} **${title}**\n\n${result.summary}\n` +
+		`${icon} **${label}**\n\n${result.summary}\n` +
 		(files ? `\n**Wrote:**\n${files}\n` : "") +
 		(result.error ? `\n**Error:**\n\`\`\`\n${result.error}\n\`\`\`\n` : "");
 	pi.sendMessage({ customType: QA_MESSAGE_TYPE, content, display: true });
-	ctx.ui.notify(`${title}: ${result.summary}`.slice(0, 200), result.ok ? "info" : "error");
-	ctx.ui.setStatus("qa", `${icon} ${title}`);
+	ctx.ui.notify(
+		`${label}: ${result.summary}`.slice(0, 200),
+		incomplete ? "warning" : result.ok ? "info" : "error",
+	);
+	ctx.ui.setStatus("qa", `${icon} ${label}`);
 }
 
-export interface VerifyFlags {
-	scope?: string;
-	runInstall: boolean;
-	runTests: boolean;
-	runScreenshots: boolean;
-	startDevServer: boolean;
-	baseUrl?: string;
-	maxRoutes?: number;
-	timeoutMs?: number;
-}
-
-export function parseVerifyArgs(raw: string): VerifyFlags {
-	const tokens = raw.trim().split(/\s+/).filter(Boolean);
-	const flags: VerifyFlags = {
-		runInstall: false,
-		runTests: false,
-		runScreenshots: false,
-		startDevServer: false,
-	};
-	// Consume the next token as a value only when it exists and isn't another flag.
-	const takeValue = (i: number): string | undefined => {
-		const next = tokens[i + 1];
-		return next !== undefined && !next.startsWith("--") ? next : undefined;
-	};
-	const takeNumber = (i: number): number | undefined => {
-		const v = takeValue(i);
-		if (v === undefined) return undefined;
-		const n = Number(v);
-		return Number.isFinite(n) ? n : undefined;
-	};
-	for (let i = 0; i < tokens.length; i++) {
-		const t = tokens[i] as string;
-		switch (t) {
-			case "--install":
-				flags.runInstall = true;
-				break;
-			case "--tests":
-				flags.runTests = true;
-				break;
-			case "--screenshots":
-				flags.runScreenshots = true;
-				break;
-			case "--start-dev-server":
-				flags.startDevServer = true;
-				break;
-			case "--base-url": {
-				const v = takeValue(i);
-				if (v !== undefined) {
-					flags.baseUrl = v;
-					i++;
-				}
-				break;
-			}
-			case "--max-routes": {
-				const n = takeNumber(i);
-				if (n !== undefined) {
-					flags.maxRoutes = n;
-					i++;
-				}
-				break;
-			}
-			case "--timeout": {
-				const n = takeNumber(i);
-				if (n !== undefined) {
-					flags.timeoutMs = n;
-					i++;
-				}
-				break;
-			}
-			default:
-				// Unknown --flags are ignored; the first bare token is the scope.
-				if (!t.startsWith("--") && !flags.scope) flags.scope = t;
-		}
+function parseCommandArgs(
+	pi: ExtensionAPI,
+	ctx: ExtensionCommandContext,
+	command: QaCommand,
+	raw: string,
+): ParsedArgs | undefined {
+	try {
+		return parseQaArgs(tokenizeArgs(raw), command, { mode: "pi", cwd: ctx.cwd });
+	} catch (error) {
+		if (!(error instanceof ArgumentError)) throw error;
+		surface(pi, ctx, `qa-${command}`, {
+			ok: false,
+			summary: error.message,
+			writtenFiles: [],
+		});
+		return undefined;
 	}
-	return flags;
 }
 
 export default function projectAwareQaExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("qa-scan", {
 		description:
 			"Scan the repo, infer test surfaces, and write .qa/surface-registry.json + reports",
-		handler: async (_args, ctx) => {
+		handler: async (raw, ctx) => {
+			const args = parseCommandArgs(pi, ctx, "scan", raw);
+			if (!args) return;
 			ctx.ui.setStatus("qa", "⏳ scanning…");
 			ctx.ui.setWorkingMessage("project-aware-qa: scanning repository…");
-			const result = runScan(ctx.cwd);
+			const result = runScan(ctx.cwd, {
+				maxFiles: args.maxFiles,
+				baseline: args.baseline,
+				saveBaseline: args.saveBaseline,
+			});
 			ctx.ui.setWorkingMessage();
 			surface(pi, ctx, "qa-scan", result);
 		},
@@ -121,8 +84,10 @@ export default function projectAwareQaExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("qa-plan", {
 		description: "Turn the surface registry into a risk-scaled test plan (optional [scope])",
-		handler: async (args, ctx) => {
-			const scope = args.trim() || undefined;
+		handler: async (raw, ctx) => {
+			const args = parseCommandArgs(pi, ctx, "plan", raw);
+			if (!args) return;
+			const scope = args.scope;
 			ctx.ui.setStatus("qa", "⏳ planning…");
 			const result = runPlan(ctx.cwd, { scope });
 			surface(pi, ctx, `qa-plan${scope ? ` ${scope}` : ""}`, result);
@@ -131,12 +96,14 @@ export default function projectAwareQaExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("qa-verify", {
 		description:
-			"Run safe checks (typecheck/lint/tests/route-probe/screenshots) with evidence. Flags: --install --tests --screenshots --start-dev-server --base-url <url> --max-routes <n> --timeout <ms>",
-		handler: async (args, ctx) => {
-			const flags = parseVerifyArgs(args);
+			"Run safe checks with evidence. CI flags: --changed-since <ref> --require <id,id> --fail-on-incomplete --junit --sarif. Runtime flags: --install --tests --screenshots --start-dev-server --base-url <url> --max-routes <n> --timeout <ms>",
+		handler: async (raw, ctx) => {
+			const args = parseCommandArgs(pi, ctx, "verify", raw);
+			if (!args) return;
+			const flags = verifyFlags(args);
 			ctx.ui.setStatus("qa", "⏳ verifying…");
 			ctx.ui.setWorkingMessage("project-aware-qa: running checks…");
-			const result = await runVerify({ root: ctx.cwd, ...flags });
+			const result = await runVerify({ root: ctx.cwd, ...flags, signal: ctx.signal });
 			ctx.ui.setWorkingMessage();
 			surface(pi, ctx, "qa-verify", result);
 		},
@@ -144,7 +111,8 @@ export default function projectAwareQaExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("qa-report", {
 		description: "Aggregate the registry + verification status into .qa/qa-report.md",
-		handler: async (_args, ctx) => {
+		handler: async (raw, ctx) => {
+			if (!parseCommandArgs(pi, ctx, "report", raw)) return;
 			ctx.ui.setStatus("qa", "⏳ reporting…");
 			const result = runReport(ctx.cwd);
 			surface(pi, ctx, "qa-report", result);

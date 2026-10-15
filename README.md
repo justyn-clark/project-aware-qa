@@ -17,9 +17,10 @@ specific ecosystems, and a generic adapter gives every other language a useful b
 A monorepo (e.g. a Remix frontend + a Phoenix backend) is detected as multiple stacks and
 verified per-stack.
 
-**Version 0.3.0** adds a standalone CLI, evidence validation, change-aware verification,
-and team policies. See the [team integration guide](templates/team-workflows.md) for
-configuration, ownership, baselines, authenticated checks, and CI exports.
+**Version 0.4.0** adds Next.js/Express/Fastify discovery, runtime diagnostics, CTV
+browser testing and performance evidence, with ASCII-only project text. See the
+[CTV and profiling guide](templates/ctv-web-and-native-profiling.md) and
+[team integration guide](templates/team-workflows.md) for setup and CI workflows.
 
 ### Stacks
 
@@ -84,7 +85,7 @@ pi -e extensions/qa.ts   # load the local extension for a session
 The package includes a compiled CLI. Install a pinned version in your project:
 
 ```bash
-npm install --save-dev --save-exact @justynclark/project-aware-qa@0.3.0
+npm install --save-dev --save-exact @justynclark/project-aware-qa@0.4.0
 npx project-aware-qa --help
 ```
 
@@ -226,8 +227,7 @@ and a deliberately-nonexistent path):
 
 ### JavaScript and TypeScript framework support
 
-The expanded Next.js, Express.js and Fastify detectors are unreleased source changes.
-They are not included in the published 0.3.0 npm package.
+The expanded Next.js, Express.js and Fastify detectors require version 0.4.0 or newer.
 
 | Framework | Static discovery | Limits |
 | --- | --- | --- |
@@ -249,7 +249,7 @@ Conventions follow the [Next.js routing documentation](https://nextjs.org/docs/a
 [Express routing guide](https://expressjs.com/en/guide/routing/), and
 [Fastify route reference](https://fastify.dev/docs/latest/Reference/Routes/).
 
-### Runtime, cloud and CTV evidence (unreleased)
+### Runtime, cloud and CTV evidence
 
 Bun tests/coverage, Bun/Node CPU and memory profiles, and Go tests/race checks,
 benchmarks and native profiles are available through `verify --diagnostics`.

@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-15
+
 ### Added
 - CTV browser collector with remote-key focus and playback assertions, repeated desktop
   metrics, synthetic CPU throttling, screenshots and optional Playwright/CDP captures.
@@ -117,6 +119,8 @@ First published release.
   trailing-slash variant rescue), and rendered-DOM screenshot validation - every claim backed
   by a command log or a skip reason.
 
+[Unreleased]: https://github.com/justyn-clark/project-aware-qa/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/justyn-clark/project-aware-qa/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/justyn-clark/project-aware-qa/compare/b7507f6...v0.3.0
 [0.2.2]: https://github.com/justyn-clark/project-aware-qa/compare/v0.2.1...b7507f6
 [0.2.1]: https://github.com/justyn-clark/project-aware-qa/compare/v0.2.0...v0.2.1

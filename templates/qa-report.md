@@ -1,7 +1,7 @@
 <!--
   Reference template for .qa/qa-report.md (produced by /qa-report) and the repair-loop
   finding format used in .qa/verification-report.md. The real files are generated; this
-  documents the contract — especially that nothing is "done" without rerun evidence.
+  documents the contract - especially that nothing is "done" without rerun evidence.
 -->
 # QA Report
 
@@ -10,28 +10,28 @@ _Target: `<repo>`_
 
 ## Snapshot
 
-- Project: **&lt;name&gt;** · &lt;frameworks&gt;
-- Surfaces: **N** (🔴 H high · 🟠 M medium · 🟢 L low)
-- CRUD flows: **N** · cache risks: **N** · untested mutating areas: **N**
-- Verification: **P passed · F failed · S skipped**
+- Project: **&lt;name&gt;** | &lt;frameworks&gt;
+- Surfaces: **N** (HIGH H high | MEDIUM M medium | LOW L low)
+- CRUD flows: **N** | cache risks: **N** | untested mutating areas: **N**
+- Verification: **P passed | F failed | S skipped**
 
 ## Top risk surfaces
-- 🔴 **&lt;title&gt;** _(crud-flow, score 82)_ — &lt;top gap&gt;
+- HIGH **&lt;title&gt;** _(crud-flow, score 82)_ - &lt;top gap&gt;
 
 ## Outstanding gaps
-- 🔴 [cache-risk] track: Mutation without detected invalidation
+- HIGH [cache-risk] track: Mutation without detected invalidation
 
 ## Artifacts
-- ✅ `.qa/surface-registry.json` — machine-readable surface registry
-- ✅ `.qa/scan-report.md`
-- ✅ `.qa/crud-matrix.md`
-- ✅ `.qa/risk-report.md`
-- ✅ `.qa/test-plan.md`
-- ✅ `.qa/verification-report.md`
+- [PASS] `.qa/surface-registry.json` - machine-readable surface registry
+- [PASS] `.qa/scan-report.md`
+- [PASS] `.qa/crud-matrix.md`
+- [PASS] `.qa/risk-report.md`
+- [PASS] `.qa/test-plan.md`
+- [PASS] `.qa/verification-report.md`
 
 ## Repair loop
 
-Follow **scan → plan → verify → fix → verify → report**. Each finding in the verification
+Follow **scan -> plan -> verify -> fix -> verify -> report**. Each finding in the verification
 report must carry:
 
 | Field | Meaning |
@@ -39,7 +39,7 @@ report must carry:
 | Issue | What is wrong |
 | Evidence | Command log / screenshot / probe backing the claim |
 | Suspected cause | Best current hypothesis |
-| Fix status | ☐ not started / ◐ in progress / ✅ fixed |
+| Fix status | [ ] not started / [INCONCLUSIVE] in progress / [PASS] fixed |
 | Rerun evidence | New log proving the fix after re-running /qa-verify |
 | Remaining gap | Anything still unverified |
 

@@ -206,7 +206,7 @@ export function renderTeamReport(insights: TeamInsights): string {
 	lines.push("", "## Suppressions", "");
 	for (const entry of insights.suppressions)
 		lines.push(
-			`- **${entry.status}** ${entry.surfaceId} · ${entry.gap} · ${entry.owner} · expires ${entry.expires} UTC · ${entry.reason}`,
+			`- **${entry.status}** ${entry.surfaceId} | ${entry.gap} | ${entry.owner} | expires ${entry.expires} UTC | ${entry.reason}`,
 		);
 	if (!insights.suppressions.length) lines.push("None.");
 	if (insights.baseline) {

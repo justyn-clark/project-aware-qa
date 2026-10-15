@@ -47,7 +47,7 @@ export interface MutationInvalidationLink {
 	/**
 	 * True only when the entity is actually cached somewhere (a query/cachified/backend
 	 * cache reads it) AND this mutation has no proven invalidation. A mutation against
-	 * an uncached entity is not a stale-data risk — there is nothing to invalidate.
+	 * an uncached entity is not a stale-data risk - there is nothing to invalidate.
 	 */
 	staleRisk: boolean;
 }
@@ -67,7 +67,7 @@ export interface CrudFlow {
 }
 
 function dtoEntity(name: string): string {
-	// CreateAlbumDto / UpdateArtistTrackDto → entity
+	// CreateAlbumDto / UpdateArtistTrackDto -> entity
 	const stripped = name.replace(/^(Create|Update|Edit|New|Patch|Upsert)/, "").replace(/Dto$/, "");
 	return singularize(words(stripped).join(""));
 }

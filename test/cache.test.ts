@@ -18,7 +18,7 @@ test("readFileCached caches content; a later edit is invisible until clearFileCa
 
 	assert.equal(readFileCached(file), '{"scripts":{"test":"v1"}}');
 
-	// Edit the file on disk — simulating the user changing package.json between scan/verify.
+	// Edit the file on disk - simulating the user changing package.json between scan/verify.
 	writeFileSync(file, '{"scripts":{"test":"v2"}}');
 
 	// Without clearing, the cache still returns the old content (the bug's mechanism).

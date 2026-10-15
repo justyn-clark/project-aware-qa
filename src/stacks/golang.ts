@@ -1,13 +1,13 @@
 /**
- * Go deep adapter — chi, gin, echo, fiber, gorilla/mux, and net/http.
+ * Go deep adapter - chi, gin, echo, fiber, gorilla/mux, and net/http.
  *
  * Emits the shared DetectionBundle:
  *  - routes/endpoints from `recv.Get("/path", handler)` (chi/gin/echo/fiber) and
  *    `mux.HandleFunc("pattern", handler)` (gorilla/stdlib, incl. Go 1.22 "GET /path" and
  *    gorilla `.Methods(...)`), with two prefix mechanisms resolved:
- *      • chi `Route("/p", func(r){…})` closures via a brace-depth stack
- *      • `g := app.Group("/p")` variables via a prefix map
- *  - DTOs from request/response structs (json-tagged or *Request/*Input/… named)
+ *      - chi `Route("/p", func(r){...})` closures via a brace-depth stack
+ *      - `g := app.Group("/p")` variables via a prefix map
+ *  - DTOs from request/response structs (json-tagged or *Request/*Input/... named)
  *  - tests from `*_test.go`; toolchain `go build/test/vet` (+ golangci-lint when configured)
  *
  * A Go module with no web routing falls through to the generic adapter (which already
@@ -31,7 +31,7 @@ function join(prefix: string, sub: string): string {
 	const b = sub === "" ? "" : sub.startsWith("/") ? sub : `/${sub}`;
 	return `${a}${b}`.replace(/\/+/g, "/").replace(/(.)\/$/, "$1") || "/";
 }
-/** chi/gorilla `{id}`(+regex), gin/echo/fiber `:id` and `*splat` → our `:id`. */
+/** chi/gorilla `{id}`(+regex), gin/echo/fiber `:id` and `*splat` -> our `:id`. */
 function normParams(path: string): string {
 	return path
 		.replace(/\{([A-Za-z0-9_]+)(?::[^}]+)?\}/g, ":$1")
@@ -152,7 +152,7 @@ export function parseGoRoutes(file: string, content: string): EndpointInfo[] {
 			}
 		}
 
-		// chi Route("/p", func(r){ … }) opens a prefix closure.
+		// chi Route("/p", func(r){ ... }) opens a prefix closure.
 		const cr = /\.Route\(\s*"([^"]*)"\s*,\s*func/.exec(line);
 		if (cr) pending = join(chiTop(), cr[1] ?? "");
 
@@ -302,7 +302,7 @@ export const goAdapter: StackAdapter = {
 			const dir = f.path === "go.mod" ? "" : f.path.slice(0, -"/go.mod".length);
 			const mod = readFileCached(f.abs) ?? "";
 			const isWeb = GO_WEB_FRAMEWORKS.test(mod) || detectGoFrameworks(repo, dir).length > 0;
-			if (!isWeb) continue; // plain Go module → generic adapter
+			if (!isWeb) continue; // plain Go module -> generic adapter
 			matches.push({ adapter: "go", rootRel: dir, label: "Go", confidence: 85 });
 		}
 		return matches;
@@ -318,7 +318,7 @@ export const goAdapter: StackAdapter = {
 			if (!content || !new RegExp(`\\.(${VERBS})\\(\\s*"|\\.HandleFunc\\(`).test(content)) continue;
 			endpoints.push(...parseGoRoutes(f.path, content));
 		}
-		// De-duplicate (method, path) — routes can be referenced from more than one file.
+		// De-duplicate (method, path) - routes can be referenced from more than one file.
 		const seen = new Set<string>();
 		const deduped = endpoints.filter((e) => {
 			const k = `${e.method} ${e.path}`;

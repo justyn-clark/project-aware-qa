@@ -5,7 +5,7 @@
  * reports, calibrated verify) is language-agnostic. Everything stack-specific lives behind
  * a `StackAdapter`: which files to read, how to detect the toolchain, and how that
  * ecosystem expresses routes/endpoints/forms/schemas/cache/tests. A repo can match several
- * adapters (monorepo) — the scanner runs each over its subtree and merges the results.
+ * adapters (monorepo) - the scanner runs each over its subtree and merges the results.
  */
 import type { DetectionBundle } from "../detectors/types.js";
 import type { RepoFiles } from "../scanner/files.js";

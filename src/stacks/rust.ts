@@ -1,5 +1,5 @@
 /**
- * Rust deep adapter — axum, actix-web, Rocket, warp/poem.
+ * Rust deep adapter - axum, actix-web, Rocket, warp/poem.
  *
  *  - axum:    `Router::new().route("/path/:id", get(handler).post(other))`
  *  - actix:   `#[get("/path")]` / `#[post("/path")]` attribute macros on handlers
@@ -149,7 +149,7 @@ export const rustAdapter: StackAdapter = {
 		const matches: StackMatch[] = [];
 		for (const f of repo.files) {
 			if (!(f.path === "Cargo.toml" || f.path.endsWith("/Cargo.toml"))) continue;
-			if (!WEB.test(readFileCached(f.abs) ?? "")) continue; // plain crate → generic
+			if (!WEB.test(readFileCached(f.abs) ?? "")) continue; // plain crate -> generic
 			const dir = f.path === "Cargo.toml" ? "" : f.path.slice(0, -"/Cargo.toml".length);
 			matches.push({ adapter: "rust", rootRel: dir, label: "Rust", confidence: 85 });
 		}

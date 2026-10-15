@@ -1,6 +1,6 @@
 /**
  * Python deep adapter parsers: FastAPI/Flask decorator routes (APIRouter/Blueprint
- * prefixes, Pydantic body types, `{id}` → `:id`) and Django urls.py + DRF router expansion.
+ * prefixes, Pydantic body types, `{id}` -> `:id`) and Django urls.py + DRF router expansion.
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -48,14 +48,14 @@ def items():
     return ...
 `;
 
-test("flask: Blueprint url_prefix + methods= list → multiple endpoints, admin-flagged", () => {
+test("flask: Blueprint url_prefix + methods= list -> multiple endpoints, admin-flagged", () => {
 	const eps = parsePyDecoratorRoutes("admin.py", FLASK, new Set());
 	const paths = eps.map((e) => `${e.method} ${e.path}`);
 	assert.ok(paths.includes("GET /admin/items"));
 	assert.ok(paths.includes("POST /admin/items"));
 	assert.ok(
 		eps.every((e) => e.isAdmin),
-		"under /admin → privileged",
+		"under /admin -> privileged",
 	);
 });
 
@@ -74,7 +74,7 @@ test("django: path() routes + <int:pk> params, include() skipped, DRF router exp
 	assert.ok(routes.some((r) => r.routePath === "/" && r.kind === "django-url"));
 	assert.ok(
 		routes.some((r) => r.routePath.startsWith("/products/:pk")),
-		"<int:pk> → :pk",
+		"<int:pk> -> :pk",
 	);
 	assert.ok(!routes.some((r) => r.routePath.includes("api")), "include() is skipped");
 

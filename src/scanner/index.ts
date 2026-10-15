@@ -1,7 +1,7 @@
 /**
  * Top-level scan orchestration: walk the repo, detect every applicable stack via the
  * adapter registry, infer flows, and assemble the surface registry. Pure and side-effect
- * free except for reading files — callers decide where to write the artifacts.
+ * free except for reading files - callers decide where to write the artifacts.
  */
 import { detectPlaywright, type PlaywrightConfig } from "../detectors/playwright.js";
 import type { DetectionBundle } from "../detectors/types.js";

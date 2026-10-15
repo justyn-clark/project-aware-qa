@@ -1,6 +1,6 @@
 #!/usr/bin/env -S npx tsx
 /**
- * /qa-plan [scope] — turn the registry into a risk-scaled test plan.
+ * /qa-plan [scope] - turn the registry into a risk-scaled test plan.
  *
  * Usage: tsx scripts/plan.ts [targetDir] [--scope <entity|type|risk|admin>]
  */

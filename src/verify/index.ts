@@ -1,12 +1,13 @@
 /**
  * Verification orchestration (Phase 6 + 7).
  *
- * Runs the safe-check ladder — registry validation, install check, typecheck, lint,
- * tests, targeted route probes, screenshots — honouring brakes (install + full test run
+ * Runs the safe-check ladder - registry validation, install check, typecheck, lint,
+ * tests, targeted route probes, screenshots - honouring brakes (install + full test run
  * + screenshots are opt-in). Every executed command writes a full log under its run's
  * `.qa/runs/<id>/findings/` directory and every result carries either evidence or a skip reason, so the
  * report can never claim "done" without backing.
  */
+
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -14,6 +15,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { type ChangeSelection, selectChanges } from "../change-selection.js";
 import { dependencyGraph, surfaceRoots } from "../dependency-graph.js";
 import { detectPlaywright } from "../detectors/playwright.js";
+import { runDiagnostics } from "../diagnostics/run.js";
 import { readRegistry, writeArtifact } from "../io.js";
 import { validateRegistry } from "../registry/schema.js";
 import { clearFileCache, walkRepo } from "../scanner/files.js";
@@ -75,6 +77,8 @@ export interface VerifyOptions {
 	runInstall?: boolean;
 	/** Lift the long-running-tests brake. */
 	runTests?: boolean;
+	runDiagnostics?: boolean;
+	runCloud?: boolean;
 	/** Lift the screenshot brake (needs a running app). */
 	runScreenshots?: boolean;
 	/** Start the project's dev server before route probes/screenshots, then stop it. */
@@ -185,7 +189,7 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 			id: "registry",
 			title: "Surface registry present & valid",
 			status: "skipped",
-			reason: "No .qa/surface-registry.json — run /qa-scan first",
+			reason: "No .qa/surface-registry.json - run /qa-scan first",
 		});
 	} else {
 		const { valid, errors } = validateRegistry(registry);
@@ -208,12 +212,12 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 			id: "change-selection",
 			title: "Change-aware verification selection",
 			status: "passed",
-			summary: `${selection.changedFiles.length} changed files · ${selection.stackRoots.length} stacks · ${selection.surfaceIds.length} directly affected surfaces`,
+			summary: `${selection.changedFiles.length} changed files | ${selection.stackRoots.length} stacks | ${selection.surfaceIds.length} directly affected surfaces`,
 			evidencePath: selectionPath,
 		});
 	}
 
-	// 2-5. Per-stack check ladder: deps/install → typecheck → lint → tests. Each stack runs
+	// 2-5. Per-stack check ladder: deps/install -> typecheck -> lint -> tests. Each stack runs
 	// its own commands in its own subdir (monorepo-aware); brakes are honoured per stack.
 	const selectedStacks = selection
 		? project.stacks.filter((stack) => selection?.stackRoots.includes(stack.rootRel))
@@ -225,6 +229,7 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 	}
 	if (registry)
 		checks.push(...(await runBehaviorChecks(config, registry, options, selection?.surfaceIds)));
+	checks.push(...(await runDiagnostics(config.diagnostics ?? [], options)));
 	if (team?.suppressions.some((entry) => entry.status !== "active"))
 		checks.push({
 			id: "suppressions",
@@ -381,7 +386,7 @@ export async function runVerification(options: VerifyOptions): Promise<VerifyRes
 					? selection
 						? "No renderable routes selected for this change/service scope"
 						: "No renderable routes selected for this scope"
-					: "No registry — run /qa-scan",
+					: "No registry - run /qa-scan",
 			});
 		} else if (devCheck?.status === "failed") {
 			checks.push({
@@ -541,7 +546,7 @@ function stackDeps(stack: StackInfo, root: string): { ready: boolean; install?: 
 		return { ready: existsSync(join(cwd, "vendor/bundle")) || true, install: "bundle install" };
 	if (pm === "cargo") return { ready: true, install: "cargo fetch" };
 	if (pm === "pip") return { ready: true, install: "pip install -r requirements.txt" };
-	// go/gradle/maven/dotnet/etc. fetch on demand — assume ready, command captures failures.
+	// go/gradle/maven/dotnet/etc. fetch on demand - assume ready, command captures failures.
 	return { ready: true };
 }
 
@@ -612,7 +617,7 @@ async function runStackLadder(
 			title: `Dependencies${tag}`,
 			status: "skipped",
 			reason: install
-				? `Not installed — gated. Re-run with install enabled to execute \`${install}\`.`
+				? `Not installed - gated. Re-run with install enabled to execute \`${install}\`.`
 				: "Dependency state unknown for this stack",
 		});
 	}
@@ -651,7 +656,7 @@ async function runStackLadder(
 		}
 	}
 
-	// Tests (gated brake — long running).
+	// Tests (gated brake - long running).
 	const test = stack.checks.test;
 	const testTitle = `Tests${tag}`;
 	if (!test) {

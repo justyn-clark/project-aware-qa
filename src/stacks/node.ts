@@ -1,13 +1,14 @@
 /**
  * Node / JavaScript-TypeScript stack adapter.
  *
- * Wraps the existing JS-TS detectors (React Router/Remix, NestJS, forms, cache, tests)
- * and package.json toolchain detection behind the StackAdapter interface. Behaviour for
- * JS/TS repos is unchanged — this is the reference "deep" adapter.
+ * Combines JS-TS detectors (React Router/Remix, Next.js, NestJS, Express, Fastify)
+ * and package.json toolchain detection behind the StackAdapter interface.
  */
 import { detectCacheSignals } from "../detectors/cache.js";
 import { detectForms } from "../detectors/forms.js";
 import { detectControllers, detectDtos } from "../detectors/nestjs.js";
+import { detectNext } from "../detectors/next.js";
+import { detectNodeHttp } from "../detectors/node-http.js";
 import { detectRoutes } from "../detectors/react-router.js";
 import { detectTests } from "../detectors/tests.js";
 import type { RepoFiles } from "../scanner/files.js";
@@ -30,8 +31,8 @@ export const nodeAdapter: StackAdapter = {
 
 	detect(repo: RepoFiles): StackMatch[] {
 		// Only anchor a Node stack when there's a real project signal (a framework or a
-		// runnable check script). An assets/tooling-only package.json — e.g. tailwind/esbuild
-		// next to a Phoenix or Django app — shouldn't create a "Node (unknown)" stack.
+		// runnable check script). An assets/tooling-only package.json - e.g. tailwind/esbuild
+		// next to a Phoenix or Django app - shouldn't create a "Node (unknown)" stack.
 		return nodePackageRoots(repo).flatMap((rootRel) => {
 			const tc = scanPackages(repo, rootRel);
 			if (tc.frameworks.length === 0 && Object.keys(tc.checkScripts).length === 0) return [];
@@ -50,7 +51,7 @@ export const nodeAdapter: StackAdapter = {
 		const usesTs = scopedRepo.files.some((f) => f.path.endsWith(".ts") || f.path.endsWith(".tsx"));
 		const stack: StackInfo = {
 			adapter: "node",
-			label: `Node (${tc.packageManager})${match.rootRel ? ` — ${match.rootRel}` : ""}`,
+			label: `Node (${tc.packageManager})${match.rootRel ? ` - ${match.rootRel}` : ""}`,
 			language: usesTs ? "typescript" : "javascript",
 			rootRel: match.rootRel,
 			packageManager: tc.packageManager,
@@ -60,9 +61,16 @@ export const nodeAdapter: StackAdapter = {
 			testRunners: tc.testRunners,
 			depth: "deep",
 		};
+		const next = tc.frameworks.includes("next")
+			? detectNext(scopedRepo, match.rootRel)
+			: { routes: [], endpoints: [] };
 		const bundle = {
-			routes: detectRoutes(scopedRepo, tc.frameworks),
-			endpoints: detectControllers(scopedRepo),
+			routes: [...detectRoutes(scopedRepo, tc.frameworks), ...next.routes],
+			endpoints: [
+				...detectControllers(scopedRepo),
+				...next.endpoints,
+				...detectNodeHttp(scopedRepo, tc.frameworks),
+			],
 			dtos: detectDtos(scopedRepo),
 			forms: detectForms(scopedRepo),
 			cacheSignals: detectCacheSignals(scopedRepo),

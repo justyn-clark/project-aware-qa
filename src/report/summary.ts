@@ -1,5 +1,5 @@
 /**
- * Aggregate `qa-report.md` — the executive summary that `/qa-report` writes.
+ * Aggregate `qa-report.md` - the executive summary that `/qa-report` writes.
  *
  * Pulls together the registry (surfaces, risk, gaps), the CRUD coverage, and the
  * verification status (when a verification report exists), and restates the repair-loop
@@ -8,7 +8,7 @@
 import type { Risk, Surface, SurfaceRegistry } from "../types.js";
 import type { VerificationSummary } from "../verification-record.js";
 
-const RISK_BADGE: Record<Risk, string> = { high: "🔴", medium: "🟠", low: "🟢" };
+const RISK_BADGE: Record<Risk, string> = { high: "HIGH", medium: "MEDIUM", low: "LOW" };
 
 function topGaps(surfaces: Surface[], limit = 15): Array<{ surface: Surface; gap: string }> {
 	const out: Array<{ surface: Surface; gap: string }> = [];
@@ -42,26 +42,26 @@ export function renderQaReport(inputs: QaReportInputs): string {
 	lines.push("## Snapshot\n");
 	const { high, medium, low } = registry.stats.byRisk;
 	lines.push(
-		`- Project: **${registry.project.name ?? "(unnamed)"}** · ${registry.project.frameworks.join(", ") || "no framework detected"}`,
+		`- Project: **${registry.project.name ?? "(unnamed)"}** | ${registry.project.frameworks.join(", ") || "no framework detected"}`,
 	);
 	lines.push(
-		`- Surfaces: **${registry.surfaces.length}** (${RISK_BADGE.high} ${high} high · ${RISK_BADGE.medium} ${medium} medium · ${RISK_BADGE.low} ${low} low)`,
+		`- Surfaces: **${registry.surfaces.length}** (${RISK_BADGE.high} ${high} high | ${RISK_BADGE.medium} ${medium} medium | ${RISK_BADGE.low} ${low} low)`,
 	);
 	const crud = registry.surfaces.filter((s) => s.type === "crud-flow");
 	const cacheRisks = registry.surfaces.filter((s) => s.type === "cache-risk");
 	const testGaps = registry.surfaces.filter((s) => s.type === "test-gap");
 	lines.push(
-		`- CRUD flows: **${crud.length}** · cache risks: **${cacheRisks.length}** · unverified mutating areas: **${testGaps.length}**`,
+		`- CRUD flows: **${crud.length}** | cache risks: **${cacheRisks.length}** | unverified mutating areas: **${testGaps.length}**`,
 	);
 	if (verification?.state === "current") {
 		lines.push(
-			`- Verification: **${verification.passed} passed · ${verification.failed} failed · ${verification.skipped} skipped · ${verification.inconclusive} inconclusive**`,
+			`- Verification: **${verification.passed} passed | ${verification.failed} failed | ${verification.skipped} skipped | ${verification.inconclusive} inconclusive**`,
 		);
 		lines.push(
-			`- Verified at: ${verification.generatedAt} · scope: ${verification.scope ?? "all"} · run: ${verification.runId}`,
+			`- Verified at: ${verification.generatedAt} | scope: ${verification.scope ?? "all"} | run: ${verification.runId}`,
 		);
 	} else if (verification) {
-		lines.push(`- Verification: **${verification.state}** — ${verification.reason}`);
+		lines.push(`- Verification: **${verification.state}** - ${verification.reason}`);
 	} else {
 		lines.push("- Verification: _not run yet (`/qa-verify`)_");
 	}
@@ -71,7 +71,7 @@ export function renderQaReport(inputs: QaReportInputs): string {
 	if (top.length === 0) lines.push("_No medium/high risk surfaces detected._");
 	for (const s of top) {
 		lines.push(
-			`- ${RISK_BADGE[s.risk]} **${s.title}** _(${s.type}, score ${s.riskScore})_ — ${s.gaps[0] ?? "see registry"}`,
+			`- ${RISK_BADGE[s.risk]} **${s.title}** _(${s.type}, score ${s.riskScore})_ - ${s.gaps[0] ?? "see registry"}`,
 		);
 	}
 
@@ -87,7 +87,7 @@ export function renderQaReport(inputs: QaReportInputs): string {
 	lines.push("\n## Artifacts\n");
 	if (registry.team)
 		lines.push(
-			"- `.qa/team-report.md` — CODEOWNERS routing, baseline changes and expiring suppressions\n",
+			"- `.qa/team-report.md` - CODEOWNERS routing, baseline changes and expiring suppressions\n",
 		);
 	const artifactRows: Array<[string, boolean, string]> = [
 		[".qa/surface-registry.json", true, "machine-readable surface registry"],
@@ -98,14 +98,14 @@ export function renderQaReport(inputs: QaReportInputs): string {
 		[".qa/verification-report.md", artifacts.verificationReport, "evidence-backed check results"],
 	];
 	for (const [path, present, desc] of artifactRows) {
-		lines.push(`- ${present ? "✅" : "⬜"} \`${path}\` — ${desc}`);
+		lines.push(`- ${present ? "[PASS]" : "[SKIP]"} \`${path}\` - ${desc}`);
 	}
 
 	lines.push("\n## Repair loop\n");
 	lines.push(
-		"Follow **scan → plan → verify → fix → verify → report**. When fixing an issue, record in the verification report:",
+		"Follow **scan -> plan -> verify -> fix -> verify -> report**. When fixing an issue, record in the verification report:",
 	);
-	lines.push("issue · evidence · suspected cause · fix status · rerun evidence · remaining gap.");
+	lines.push("issue | evidence | suspected cause | fix status | rerun evidence | remaining gap.");
 	lines.push("Do not report a fix as done without rerun evidence.\n");
 	return lines.join("\n");
 }

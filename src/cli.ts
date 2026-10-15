@@ -23,9 +23,9 @@ Scan: --max-files <positive integer>, --baseline <repo-relative-path>, --save-ba
 Verify: --scope <value>, --tests, --install, --screenshots,
         --start-dev-server, --base-url <url>, --max-routes <n>, --timeout <ms>
         --changed-since <git-ref>, --require <id,id>, --fail-on-incomplete,
-        --junit, --sarif, --service <repo-relative-root>
+        --junit, --sarif, --service <repo-relative-root>, --diagnostics, --cloud
 
-Team configuration: .project-aware-qa.json (dependencies, policy, baseline, suppressions, behaviorChecks).
+Team configuration: .project-aware-qa.json (dependencies, policy, baseline, suppressions, behaviorChecks, diagnostics).
 Verification is advisory unless a repository or CLI policy is supplied.
 Exit 0 means the operation completed without failed checks; exit 1 means failure.
 `);

@@ -101,7 +101,7 @@ test("a new scan cannot inherit verification counts from an old registry", async
 test("legacy Markdown counts remain unverified rather than becoming current evidence", (t) => {
 	const root = fixture(t);
 	runScan(root);
-	writeFileSync(join(root, ".qa", "verification-report.md"), "**3 passed · 0 failed · 2 skipped**");
+	writeFileSync(join(root, ".qa", "verification-report.md"), "**3 passed | 0 failed | 2 skipped**");
 	runReport(root);
 	const report = readFileSync(join(root, ".qa", "qa-report.md"), "utf8");
 	assert.match(report, /Verification: \*\*unverified\*\*/);

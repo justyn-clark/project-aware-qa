@@ -2,13 +2,15 @@
  * Stack adapter registry + multi-stack orchestration.
  *
  * Runs every deep adapter first, then the generic fallback only where no deep adapter
- * already claimed a location — so a Phoenix app gets the deep adapter, a plain Go module
+ * already claimed a location - so a Phoenix app gets the deep adapter, a plain Go module
  * gets the generic baseline, and a monorepo gets one stack per sub-project. Merges all
  * per-stack DetectionBundles and surfaces into the shape the registry builder expects.
  */
+
 import type { DetectionBundle } from "../detectors/types.js";
 import type { RepoFiles } from "../scanner/files.js";
 import { nodePackageRoots } from "../scanner/package.js";
+import { discoverPlatforms } from "../scanner/platforms.js";
 import type { PackageManager, ProjectInfo, StackInfo, Surface } from "../types.js";
 import { csharpAdapter } from "./csharp.js";
 import { genericAdapter } from "./generic.js";
@@ -101,7 +103,7 @@ export function scanStacks(repo: RepoFiles): MultiStackScan {
 	}
 
 	// Drop empty stacks (e.g. an assets-only package.json next to a Phoenix/Django app):
-	// no frameworks, no runnable checks, and nothing detected — keep the report clean.
+	// no frameworks, no runnable checks, and nothing detected - keep the report clean.
 	const meaningful = scans.filter((s) => {
 		const b = s.bundle;
 		const contributed =
@@ -123,6 +125,9 @@ export function scanStacks(repo: RepoFiles): MultiStackScan {
 	const extraSurfaces = kept.flatMap((s) => s.extraSurfaces);
 
 	const project = buildProjectInfo(repo, stacks, kept);
+	const platforms = discoverPlatforms(repo);
+	project.runtimeDeclarations = platforms.runtimes;
+	project.infrastructure = platforms.infrastructure;
 	return { project, bundle, extraSurfaces };
 }
 

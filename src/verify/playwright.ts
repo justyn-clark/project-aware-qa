@@ -8,7 +8,7 @@
  *    target repo or globally; otherwise records a skip with the exact reason and writes
  *    a screenshot plan the agent can fulfil via the Pi Playwright MCP.
  *
- * No baseline diffing in v1 — we capture, we don't compare.
+ * No baseline diffing in v1 - we capture, we don't compare.
  */
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -24,7 +24,7 @@ export interface RouteProbe {
 	status: number | null;
 	/** The route loaded successfully (2xx/3xx). A 404/5xx is NOT ok. */
 	ok: boolean;
-	/** The server returned any HTTP response (even an error status) — i.e. it is up. */
+	/** The server returned any HTTP response (even an error status) - i.e. it is up. */
 	reachable: boolean;
 	error?: string;
 	durationMs: number;
@@ -188,17 +188,17 @@ export async function probeRoutes(
 }
 
 // ---------------------------------------------------------------------------
-// Server calibration — learn what the server's responses actually MEAN before
+// Server calibration - learn what the server's responses actually MEAN before
 // interpreting per-route probes. An HTTP status is only a trustworthy route signal
 // when the server distinguishes real routes from unknown ones.
 // ---------------------------------------------------------------------------
 
 export type ServerMode =
-	/** Root unreachable — server isn't running. */
+	/** Root unreachable - server isn't running. */
 	| "down"
-	/** Unknown paths return a clear 404/410 — status IS a valid route signal. */
+	/** Unknown paths return a clear 404/410 - status IS a valid route signal. */
 	| "distinguishes"
-	/** Unknown paths return 2xx/3xx (SPA catch-all/soft-404) — status can't validate routes. */
+	/** Unknown paths return 2xx/3xx (SPA catch-all/soft-404) - status can't validate routes. */
 	| "catch-all";
 
 export interface ServerCalibration {
@@ -251,7 +251,7 @@ export async function calibrateServer(
 		};
 	}
 	const bogusStatus = await get(BOGUS_PATH);
-	// A clear not-found on a bogus path → the server distinguishes routes; status is meaningful.
+	// A clear not-found on a bogus path -> the server distinguishes routes; status is meaningful.
 	const distinguishes = bogusStatus === 404 || bogusStatus === 410;
 	return {
 		mode: distinguishes ? "distinguishes" : "catch-all",
@@ -264,7 +264,7 @@ export async function calibrateServer(
 
 /**
  * Re-probe broken routes with cheap normalized variants (trailing slash, optional
- * basename prefix) before declaring them broken — most "404s" are normalization artifacts
+ * basename prefix) before declaring them broken - most "404s" are normalization artifacts
  * of heuristic path derivation, not real app bugs. Only runs when the server distinguishes
  * routes (otherwise a 200 is meaningless). Mutates and returns the probe list.
  */
@@ -324,11 +324,11 @@ export interface RouteProbeSummary {
 /**
  * Aggregate route probes into a single check verdict, interpreted through server
  * calibration:
- *  - mode "down"          → skipped (server isn't running).
- *  - mode "catch-all"     → inconclusive (status can't validate routes; defer to the
+ *  - mode "down"          -> skipped (server isn't running).
+ *  - mode "catch-all"     -> inconclusive (status can't validate routes; defer to the
  *                           rendered-DOM/screenshot check).
- *  - mode "distinguishes" → status is meaningful: all ok/auth → passed; any broken or
- *                           some-unreachable → failed (partial = failed). Auth-gated is a
+ *  - mode "distinguishes" -> status is meaningful: all ok/auth -> passed; any broken or
+ *                           some-unreachable -> failed (partial = failed). Auth-gated is a
  *                           soft note (can't verify without credentials).
  * When no calibration is supplied, falls back to reachability-only (legacy behaviour).
  */
@@ -371,11 +371,11 @@ export function summarizeRouteProbes(
 	const broken = probes.filter((p) => classifyProbe(p) === "broken");
 	const detail = broken
 		.slice(0, 3)
-		.map((p) => `${p.route}→${p.status}`)
+		.map((p) => `${p.route}->${p.status}`)
 		.join(", ");
 	const bits: string[] = [];
 	if (counts.broken)
-		bits.push(`${counts.broken} broken (${detail}${broken.length > 3 ? ", …" : ""})`);
+		bits.push(`${counts.broken} broken (${detail}${broken.length > 3 ? ", ..." : ""})`);
 	if (counts.unreachable) bits.push(`${counts.unreachable} unreachable`);
 	return {
 		status: "failed",
@@ -547,7 +547,7 @@ export interface ScreenshotSummary {
 }
 
 /**
- * Verdict over screenshot results using the rendered DOM — the authoritative route check
+ * Verdict over screenshot results using the rendered DOM - the authoritative route check
  * for SPA/catch-all servers where HTTP status is meaningless. One verdict per route
  * (collapsing viewports): a route is broken if any viewport rendered a not-found/error
  * page, returned a 4xx/5xx navigation status, or failed to finish capture.
@@ -586,13 +586,13 @@ export function summarizeScreenshots(results: ScreenshotResult[]): ScreenshotSum
 	const total = byRoute.size;
 	const savedShots = results.filter((s) => s.file).length;
 	const consoleNote = consoleErrRoutes.length
-		? ` · ${consoleErrRoutes.length} route(s) with console errors`
+		? ` | ${consoleErrRoutes.length} route(s) with console errors`
 		: "";
 	if (notFoundRoutes > 0 || erroredRoutes > 0) {
 		const detail = brokenRoutes.slice(0, 4).join(", ");
 		return {
 			status: "failed",
-			summary: `${okRoutes}/${total} rendered OK · ${notFoundRoutes} not-found/error page(s) · ${erroredRoutes} route(s) with failed viewport capture (${detail}${brokenRoutes.length > 4 ? ", …" : ""})${consoleNote}. ${savedShots} screenshots saved`,
+			summary: `${okRoutes}/${total} rendered OK | ${notFoundRoutes} not-found/error page(s) | ${erroredRoutes} route(s) with failed viewport capture (${detail}${brokenRoutes.length > 4 ? ", ..." : ""})${consoleNote}. ${savedShots} screenshots saved`,
 		};
 	}
 	return {

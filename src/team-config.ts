@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import { type DiagnosticCheck, parseDiagnostics } from "./diagnostics/config.js";
 import { normalizeRequiredChecks } from "./verification-policy.js";
 
 export const CONFIG_FILE = ".project-aware-qa.json";
@@ -31,6 +32,7 @@ export interface TeamConfig {
 	baseline?: string;
 	suppressions: Suppression[];
 	behaviorChecks: BehaviorCheck[];
+	diagnostics?: DiagnosticCheck[];
 }
 
 function object(value: unknown, at: string, keys: string[]): Record<string, unknown> {
@@ -84,12 +86,21 @@ export function readTeamConfig(root: string): TeamConfig {
 		policy: { requiredChecks: [], failOnIncomplete: false, failOnNewHighRisk: false },
 		suppressions: [],
 		behaviorChecks: [],
+		diagnostics: [],
 	};
 	if (!existsSync(resolve(root, CONFIG_FILE))) return defaults;
 	const data = object(
 		JSON.parse(readFileSync(localInput(root, CONFIG_FILE), "utf8")),
 		CONFIG_FILE,
-		["version", "dependencies", "policy", "baseline", "suppressions", "behaviorChecks"],
+		[
+			"version",
+			"dependencies",
+			"policy",
+			"baseline",
+			"suppressions",
+			"behaviorChecks",
+			"diagnostics",
+		],
 	);
 	if (data.version !== 1) throw new Error(`${CONFIG_FILE} version must be 1`);
 	if (data.dependencies !== undefined) {
@@ -178,5 +189,6 @@ export function readTeamConfig(root: string): TeamConfig {
 					: repoPath(text(entry.playwrightReport, "behaviorCheck.playwrightReport")),
 		};
 	});
+	defaults.diagnostics = parseDiagnostics(data.diagnostics);
 	return defaults;
 }

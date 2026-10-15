@@ -251,9 +251,9 @@ function buildEndpointSurfaces(
 				: "No related spec/e2e detected for this handler",
 		);
 		if (ep.isMutation && !ep.bodyDto)
-			gaps.push("No @Body() DTO detected — validation coverage unknown");
+			gaps.push("No @Body() DTO detected - validation coverage unknown");
 		const inferredTests: InferredTest[] = [
-			makeInferredTest("api", `${ep.method} ${ep.path} → expected status + shape`, hasTests),
+			makeInferredTest("api", `${ep.method} ${ep.path} -> expected status + shape`, hasTests),
 		];
 		if (ep.isMutation) {
 			inferredTests.push(
@@ -451,7 +451,7 @@ function buildRouteSurfaces(
 			authGated,
 		});
 		const inferredTests: InferredTest[] = [
-			makeInferredTest("smoke", `Navigate ${r.routePath} → 200, no console errors`, hasTests),
+			makeInferredTest("smoke", `Navigate ${r.routePath} -> 200, no console errors`, hasTests),
 		];
 		if (renderable) {
 			inferredTests.push(

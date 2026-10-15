@@ -1,7 +1,7 @@
 <!--
   Reference template for .qa/test-plan.md (produced by /qa-plan).
   The real file is generated from the surface registry; this shows the shape and the
-  risk → depth contract so the output stays predictable.
+  risk -> depth contract so the output stays predictable.
 -->
 # QA Test Plan
 
@@ -14,27 +14,27 @@ Depth scales with risk:
 
 | Risk | Depth |
 | --- | --- |
-| 🔴 high | runtime + form + API + cache + screenshots |
-| 🟠 medium | route/API + basic UI |
-| 🟢 low | smoke only |
+| HIGH | runtime + form + API + cache + screenshots |
+| MEDIUM | route/API + basic UI |
+| LOW | smoke only |
 
 ## Coverage summary
 
 - Surfaces in scope: **N**
 - Inferred tests: **X present**, **Y missing**
 
-## 🔴 high — depth: runtime + form + API + cache + screenshots (N)
+## HIGH - depth: runtime + form + API + cache + screenshots (N)
 
 ### &lt;Surface title&gt;
-_type: `crud-flow` · entity: `track` · route: `/admin/tracks` · endpoint: `POST /track` · score: 82_
+_type: `crud-flow` | entity: `track` | route: `/admin/tracks` | endpoint: `POST /track` | score: 82_
 files: `app/routes/...`, `src/modules/track/track.controller.ts`
-- ☐ (no test) **form**: Submit track create/update form and assert persistence
-- ☐ (no test) **api**: POST /track happy-path + validation
-- ☐ (no test) **cache**: Mutate track then assert UI/list reflects change
-  - ⚠ Mutation without detected invalidation: POST /track (TrackController.create)
+- [ ] (no test) **form**: Submit track create/update form and assert persistence
+- [ ] (no test) **api**: POST /track happy-path + validation
+- [ ] (no test) **cache**: Mutate track then assert UI/list reflects change
+  - [WARN] Mutation without detected invalidation: POST /track (TrackController.create)
 
-## 🟠 medium — depth: route/API + basic UI (N)
-…
+## MEDIUM - depth: route/API + basic UI (N)
+...
 
-## 🟢 low — depth: smoke only (N)
-…
+## LOW - depth: smoke only (N)
+...

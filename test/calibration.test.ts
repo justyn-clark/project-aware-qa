@@ -51,7 +51,7 @@ function probe(route: string, status: number | null): RouteProbe {
 	};
 }
 
-test("calibrateServer: server that 404s unknown paths → distinguishes", async () => {
+test("calibrateServer: server that 404s unknown paths -> distinguishes", async () => {
 	const { server, baseUrl } = await startServer((url) => (url === "/" ? 200 : 404));
 	try {
 		const c = await calibrateServer(baseUrl);
@@ -62,7 +62,7 @@ test("calibrateServer: server that 404s unknown paths → distinguishes", async 
 	}
 });
 
-test("calibrateServer: SPA catch-all (200 for everything) → catch-all", async () => {
+test("calibrateServer: SPA catch-all (200 for everything) -> catch-all", async () => {
 	const { server, baseUrl } = await startServer(() => 200);
 	try {
 		const c = await calibrateServer(baseUrl);
@@ -73,12 +73,12 @@ test("calibrateServer: SPA catch-all (200 for everything) → catch-all", async 
 	}
 });
 
-test("calibrateServer: nothing listening → down", async () => {
+test("calibrateServer: nothing listening -> down", async () => {
 	const c = await calibrateServer("http://127.0.0.1:1", 1200);
 	assert.equal(c.mode, "down");
 });
 
-test("summarizeRouteProbes: catch-all → inconclusive (not passed), even if all 200", () => {
+test("summarizeRouteProbes: catch-all -> inconclusive (not passed), even if all 200", () => {
 	const v = summarizeRouteProbes(
 		[probe("/a", 200), probe("/b", 200)],
 		"http://x",
@@ -88,7 +88,7 @@ test("summarizeRouteProbes: catch-all → inconclusive (not passed), even if all
 	assert.match(v.reason ?? "", /catch-all|unknown path|can't validate/i);
 });
 
-test("summarizeRouteProbes: distinguishes + a real 404 → failed", () => {
+test("summarizeRouteProbes: distinguishes + a real 404 -> failed", () => {
 	const v = summarizeRouteProbes(
 		[probe("/a", 200), probe("/b", 404)],
 		"http://x",
@@ -97,7 +97,7 @@ test("summarizeRouteProbes: distinguishes + a real 404 → failed", () => {
 	assert.equal(v.status, "failed");
 });
 
-test("summarizeRouteProbes: distinguishes + all ok → passed", () => {
+test("summarizeRouteProbes: distinguishes + all ok -> passed", () => {
 	const v = summarizeRouteProbes(
 		[probe("/a", 200), probe("/b", 301)],
 		"http://x",
@@ -131,7 +131,7 @@ function shot(route: string, viewport: string, over: Partial<ScreenshotResult>):
 	};
 }
 
-test("summarizeScreenshots: a not-found DOM render → failed (the SPA route validator)", () => {
+test("summarizeScreenshots: a not-found DOM render -> failed (the SPA route validator)", () => {
 	const v = summarizeScreenshots([
 		shot("/admin/tracks", "desktop", { looksLikeNotFound: false, httpStatus: 200 }),
 		shot("/bogus", "desktop", { looksLikeNotFound: true, httpStatus: 200 }),
@@ -140,7 +140,7 @@ test("summarizeScreenshots: a not-found DOM render → failed (the SPA route val
 	assert.match(v.summary ?? "", /not-found|error/i);
 });
 
-test("summarizeScreenshots: all rendered cleanly → passed", () => {
+test("summarizeScreenshots: all rendered cleanly -> passed", () => {
 	const v = summarizeScreenshots([
 		shot("/a", "desktop", { httpStatus: 200 }),
 		shot("/a", "mobile", { httpStatus: 200 }),
@@ -148,7 +148,7 @@ test("summarizeScreenshots: all rendered cleanly → passed", () => {
 	assert.equal(v.status, "passed");
 });
 
-test("summarizeScreenshots: empty → skipped", () => {
+test("summarizeScreenshots: empty -> skipped", () => {
 	assert.equal(summarizeScreenshots([]).status, "skipped");
 });
 

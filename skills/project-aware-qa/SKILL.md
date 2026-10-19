@@ -138,3 +138,27 @@ Profiles alone remain inconclusive; only explicit passing performance budgets es
 a performance check result. Do not infer Bun runtime from its package manager, physical
 CTV behavior from desktop/emulator results, or total memory from JS heap. External
 collectors must supply fresh run/source identity and honest device/build metadata.
+
+## Agent readiness and task evaluation
+
+Use `/qa-agent-readiness` for static onboarding evidence. It does not execute setup
+or assign an agent-capability score. Use `/qa-agent-eval --suite .qa-evals --execute`
+only for requested task evaluations with a reviewed suite and local pinned Docker
+image. API-backed agents additionally require `--allow-network` and declared environment
+variable names. Keep credentials out of prompts and commands. Cost/token accounting
+is unavailable; apply provider budgets separately.
+
+Use `/qa-agent-compare --before <report.json> --after <report.json>` for compatible,
+complete trial sets. Report inconclusive controls and infrastructure failures as gaps.
+Never describe deterministic harness fixtures as measured model performance. See the
+[evaluation guide](../../templates/agent-evaluations.md) for isolation, graders,
+reference controls, limits and interpretation.
+
+## Acceptance evidence
+
+Use `/qa-acceptance --plan .qa-acceptance.json` for explicit requirements and targets.
+Local file/directory checks need no Docker or network. URL targets require
+`--allow-network`; MCP/browser tool calls also require `--allow-tool-calls`.
+Use `/qa-status` and `/qa-cancel` for background acceptance/evaluation runs.
+Source quotes are verified verbatim; inferred expectations and uncovered criteria
+cannot establish acceptance. See [the workflow guide](../../templates/acceptance-workflows.md).

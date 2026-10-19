@@ -17,10 +17,10 @@ specific ecosystems, and a generic adapter gives every other language a useful b
 A monorepo (e.g. a Remix frontend + a Phoenix backend) is detected as multiple stacks and
 verified per-stack.
 
-**Version 0.4.0** adds Next.js/Express/Fastify discovery, runtime diagnostics, CTV
-browser testing and performance evidence, with ASCII-only project text. See the
-[CTV and profiling guide](templates/ctv-web-and-native-profiling.md) and
-[team integration guide](templates/team-workflows.md) for setup and CI workflows.
+**Version 0.5.0** adds source-linked acceptance checks, live progress and cancellation,
+agent readiness reports, and isolated agent evaluations with independent grading.
+See the [acceptance guide](templates/acceptance-workflows.md) and
+[agent evaluation guide](templates/agent-evaluations.md) for setup and CI workflows.
 
 ### Stacks
 
@@ -85,7 +85,7 @@ pi -e extensions/qa.ts   # load the local extension for a session
 The package includes a compiled CLI. Install a pinned version in your project:
 
 ```bash
-npm install --save-dev --save-exact @justynclark/project-aware-qa@0.4.0
+npm install --save-dev --save-exact @justynclark/project-aware-qa@0.5.0
 npx project-aware-qa --help
 ```
 
@@ -334,3 +334,23 @@ Validated against `templates/surface-registry.schema.json`.
 - Behavior mappings state which suite the team assigns to a surface. Passing a suite does not
   prove every assertion or user journey is covered. Traces may contain application data;
   the CI template excludes attachments and raw logs from uploads.
+
+## Agent readiness and task evaluations
+
+Discover static onboarding evidence with `project-aware-qa agent-readiness .`.
+Run opt-in, bounded agent tasks with `agent-eval --execute` and compare compatible
+reports with `agent-compare`. Independent unchanged/reference controls, held-out
+assertions and file boundaries determine verified completion. Readiness discovery
+does not claim agent capability. Runtime dependencies remain at zero.
+
+See [Agent evaluations](templates/agent-evaluations.md) for suite configuration,
+Docker isolation, evidence reports, limitations and a deterministic example.
+
+## Acceptance evidence and explicit targets
+
+`project-aware-qa acceptance . --plan .qa-acceptance.json` links ticket/specification
+criteria to file, HTTP, MCP or browser-tool observations. It captures target identity,
+reports uncovered requirements, and preserves partial evidence on cancellation.
+Pi provides `/qa-acceptance`, `/qa-status` and `/qa-cancel`. No Docker is needed.
+Network access, browser tools and tool invocation are explicit opt-ins.
+See [acceptance workflows](templates/acceptance-workflows.md) for examples and limits.

@@ -1,7 +1,15 @@
 import { resolve } from "node:path";
 import { normalizeRequiredChecks } from "./verification-policy.js";
 
-export type QaCommand = "scan" | "plan" | "verify" | "report";
+export type QaCommand =
+	| "scan"
+	| "plan"
+	| "verify"
+	| "report"
+	| "acceptance"
+	| "agent-readiness"
+	| "agent-eval"
+	| "agent-compare";
 
 export class ArgumentError extends Error {
 	constructor(message: string) {
@@ -55,6 +63,10 @@ const VALUE_OPTIONS: Record<QaCommand, string[]> = {
 	plan: ["scope"],
 	verify: ["scope", "base-url", "service", "max-routes", "timeout", "changed-since", "require"],
 	report: [],
+	acceptance: ["plan", "browser-module", "auth-env"],
+	"agent-readiness": [],
+	"agent-eval": ["suite"],
+	"agent-compare": ["before", "after"],
 };
 const NUMBER_OPTIONS = new Set(["max-files", "max-routes", "timeout"]);
 
@@ -113,6 +125,8 @@ export function parseQaArgs(
 	const positionals: string[] = [];
 	const booleans = new Set([
 		...(command === "scan" ? ["save-baseline"] : []),
+		...(command === "agent-eval" ? ["execute", "allow-network"] : []),
+		...(command === "acceptance" ? ["allow-network", "allow-tool-calls"] : []),
 		...(command === "verify" ? VERIFY_BOOLEANS : []),
 		...(mode === "cli" ? ["json"] : []),
 	]);

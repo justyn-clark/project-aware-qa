@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "target": { "kind": "directory", "value": "dist", "buildId": "local-build" },
+  "timeoutMs": 30000,
+  "criteria": [
+    {
+      "id": "welcome",
+      "expected": "The built page includes the Welcome heading",
+      "source": { "kind": "ticket", "path": "tickets/welcome.md", "quote": "Show Welcome" }
+    }
+  ],
+  "checks": [
+    { "id": "welcome-html", "criterion": "welcome", "kind": "file", "path": "index.html", "contains": "<h1>Welcome</h1>" }
+  ]
+}

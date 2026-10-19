@@ -9,7 +9,7 @@ import { parse } from "yaml";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
-test("packed release contains loadable skills and all four QA commands", async () => {
+test("packed release contains loadable skills and all QA commands", async () => {
 	const temp = mkdtempSync(join(tmpdir(), "qa-release-"));
 	try {
 		execFileSync("npm", ["run", "build"], { cwd: root, encoding: "utf8" });
@@ -51,7 +51,18 @@ test("packed release contains loadable skills and all four QA commands", async (
 			const module = await import(pathToFileURL(join(packed, extension)).href);
 			module.default({ registerCommand: (name: string) => commands.push(name) });
 		}
-		assert.deepEqual(commands.sort(), ["qa-plan", "qa-report", "qa-scan", "qa-verify"]);
+		assert.deepEqual(commands.sort(), [
+			"qa-acceptance",
+			"qa-agent-compare",
+			"qa-agent-eval",
+			"qa-agent-readiness",
+			"qa-cancel",
+			"qa-plan",
+			"qa-report",
+			"qa-scan",
+			"qa-status",
+			"qa-verify",
+		]);
 		// The published CLI must work with plain Node, without tsx or installed dev dependencies.
 		const executable = join(packed, manifest.bin["project-aware-qa"]);
 		assert.equal(

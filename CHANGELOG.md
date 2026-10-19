@@ -4,7 +4,15 @@ All notable changes to `@justynclark/project-aware-qa` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), and this project adheres
 to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-18
+
+### Added
+- Acceptance criteria with source quotes/hashes, explicit local and URL targets,
+  behavior reports, optional MCP/WebMCP interface checks and Pi run status/cancellation.
+- Progress events and bounded patch retention with completed evaluation scratch cleanup.
+- Static agent readiness reports, opt-in isolated agent task evaluations with
+  independent grader controls, bounded repeated trials and compatible comparisons.
+- CLI and Pi commands, held-out grader/reference fixture and evaluation guide.
 
 ## [0.4.0] - 2026-10-15
 
@@ -119,7 +127,7 @@ First published release.
   trailing-slash variant rescue), and rendered-DOM screenshot validation - every claim backed
   by a command log or a skip reason.
 
-[Unreleased]: https://github.com/justyn-clark/project-aware-qa/compare/v0.4.0...HEAD
+[0.5.0]: https://github.com/justyn-clark/project-aware-qa/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/justyn-clark/project-aware-qa/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/justyn-clark/project-aware-qa/compare/b7507f6...v0.3.0
 [0.2.2]: https://github.com/justyn-clark/project-aware-qa/compare/v0.2.1...b7507f6

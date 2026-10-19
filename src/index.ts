@@ -2,6 +2,12 @@
  * Public API for project-aware-qa. The CLI scripts and the Pi extension import from here.
  */
 
+export { type AcceptancePlan, parseAcceptancePlan } from "./acceptance/config.js";
+export { type AcceptanceOptions, type AcceptanceReport, runAcceptance } from "./acceptance/run.js";
+export { compareEvaluations, readEvalReport, runAgentComparison } from "./agent-evals/compare.js";
+export { type EvalSuite, type EvalTask, parseEvalSuite } from "./agent-evals/config.js";
+export { inspectReadiness, runAgentReadiness } from "./agent-evals/readiness.js";
+export { type EvalReport, runAgentEval, type Trial } from "./agent-evals/run.js";
 export { type ChangeSelection, selectChanges } from "./change-selection.js";
 export {
 	runPlan,
@@ -33,6 +39,7 @@ export {
 	writeArtifact,
 	writeJsonArtifact,
 } from "./io.js";
+export type { ProgressListener, RunProgress } from "./progress.js";
 export { buildRegistry } from "./registry/build.js";
 export { assertValidRegistry, type ValidationResult, validateRegistry } from "./registry/schema.js";
 export { renderJUnit, renderSarif } from "./report/machine.js";

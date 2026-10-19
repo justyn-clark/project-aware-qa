@@ -1,6 +1,6 @@
 {
   "name": "@justynclark/project-aware-qa",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Pi-first QA pack: scans real codebases, infers test surfaces, ranks risk, runs evidence-based checks, captures screenshots, and writes .qa/* reports.",
   "type": "module",
   "bin": {

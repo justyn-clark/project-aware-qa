@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "image": "sha256:REPLACE_WITH_LOCAL_IMAGE_ID",
+  "agent": {
+    "id": "fixture-v1",
+    "model": "deterministic-fixture",
+    "command": ["node", "/opt/fixture-agent.cjs"],
+    "env": []
+  },
+  "trials": 3,
+  "timeoutMs": 30000,
+  "graderTimeoutMs": 10000,
+  "totalTimeoutMs": 180000,
+  "tasks": [
+    {
+      "id": "fix-add",
+      "prompt": "Fix the add(a, b) function in math.cjs. Preserve the exported interface. Only edit math.cjs.",
+      "allowedPaths": ["math.cjs"],
+      "grader": ["node", "/grader/check.cjs"],
+      "reference": "reference/fix-add"
+    }
+  ]
+}

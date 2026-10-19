@@ -53,4 +53,22 @@ jobs:
           node "$RUNNER_TEMP/qa-browser/node_modules/playwright/cli.js" install --with-deps chromium
       - name: Verify CTV collector in real Chromium
         run: |
-          QA_PLAYWRIGHT_MODULE="$RUNNER_TEMP/qa-browser/node_modules/playwright/index.mjs" node --import tsx --test test/ctv-browser.test.ts
+          QA_PLAYWRIGHT_MODULE="$RUNNER_TEMP/qa-browser/node_modules/playwright/index.mjs" node --import tsx --test test/ctv-browser.test.ts test/acceptance.test.ts
+
+  agent-evaluations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Prepare local fixture image
+        run: docker pull node:22-slim
+      - name: Verify isolated agent evaluation lifecycle
+        run: |
+          QA_AGENT_EVAL_IMAGE="$(docker image inspect node:22-slim --format '{{.Id}}')" node --import tsx --test test/agent-evals.test.ts
